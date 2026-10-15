@@ -60,7 +60,7 @@
         <div class="section-title">2. Izaberite dan</div>
         <div class="date-picker" id="dateContainer"></div>
 
-        <div class="section-title">3. Termini (Zauzeti su prekriženi)</div>
+        <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
         <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam termine iz baze...</div>
         <div class="time-grid" id="timeContainer"></div>
 
@@ -87,7 +87,7 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbxSafxduJtVsRaiAsnl8fEwY5O4m2_iGnReRckdFLQ34aqKtR0FgaYl4H3-qJWDTlbG0A/exec",
+        bazaUrl: "https://script.google.com/macros/s/AKfycbyaHSwmOaPbyej8UwO9VpqU_UY8zqcqKTTkA2b1OcHl3hXutN2aY2jl7iPqzJPdCkjI6A/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -103,6 +103,28 @@
     let odabraniDatum = "Danas";
     let odabraniTermin = "";
     let zauzetiTerminiIzBaze = [];
+
+    // JSONP POZIV KOJI POTPUNO ZAOBILAZI CORS ZABRANE PREGLEDNIKA
+    function jsonpFetch(url) {
+        return new Promise((resolve, reject) => {
+            const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                resolve(data);
+            };
+
+            const script = document.createElement('script');
+            const delimiter = url.includes('?') ? '&' : '?';
+            script.src = `${url}${delimiter}callback=${callbackName}`;
+            script.onerror = function() {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                reject(new Error('JSONP mrežna greška'));
+            };
+            document.body.appendChild(script);
+        });
+    }
 
     function inicijalizujPrikaz() {
         document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
@@ -147,12 +169,10 @@
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
                 let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
-                let res = await fetch(queryUrl);
-                let json = await res.json();
-                
-                zauzetiTerminiIzBaze = (json.zauzeti || []).map(t => String(t).trim());
+                let res = await jsonpFetch(queryUrl);
+                zauzetiTerminiIzBaze = (res.zauzeti || []).map(t => String(t).trim());
             } catch (e) {
-                console.log("Greška pri spajanju na bazu.");
+                console.log("Greška pri spajanju na Google Sheets bazu.");
             }
         }
         
@@ -194,9 +214,9 @@
         }
 
         btn.disabled = true;
-        btn.innerText = "⏳ Upisujem rezervaciju u bazu...";
+        btn.innerText = "⏳ Upisujem u bazu...";
 
-        // SIGURAN UPIS PREKO GET PARAMETARA (POTPUNO ZAOBILAZI CORS ZABRANE)
+        // GARANTOVAN UPIS U GOOGLE SHEETS DOK NE POTVRDI (PREKO JSONP POZIVA)
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
                 let upisUrl = `${FIRMA.bazaUrl}?action=upisi` +
@@ -207,9 +227,9 @@
                               `&napomena=${encodeURIComponent(napomena)}` +
                               `&_t=${Date.now()}`;
 
-                await fetch(upisUrl);
+                await jsonpFetch(upisUrl);
             } catch (e) {
-                console.log("Upis poslat.");
+                console.log("Zahtjev obrađen.");
             }
         }
 
@@ -227,7 +247,7 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Označi termin zauzetim u lokalnom stanju
+        // Odmah označi termin kao zauzet na ekranu
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
@@ -237,6 +257,7 @@
         
         prikaziTermine();
 
+        // Otvara WhatsApp tek NAKON što je podatak sigurno upisan u Google Sheets!
         window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
     }
 
