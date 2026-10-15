@@ -3,34 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gradski Zakazivač Termina</title>
+    <title>Online Zakazivanje Termina</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         body { background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; padding: 15px; }
         .app-card { background: #ffffff; width: 100%; max-width: 480px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; padding-bottom: 20px; }
         
         .header { background: linear-gradient(135deg, #075e54, #128c7e); color: white; padding: 25px 20px; text-align: center; }
-        .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+        .logo-box { width: 85px; height: 85px; background: rgba(255,255,255,0.2); border: 2px dashed rgba(255,255,255,0.6); border-radius: 50%; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; text-transform: uppercase; overflow: hidden; }
+        .logo-box img { width: 100%; height: 100%; object-fit: cover; }
+        .header h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
         .header p { font-size: 0.85rem; opacity: 0.9; }
 
         .content { padding: 20px; }
         .section-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #65676b; margin-bottom: 10px; margin-top: 15px; }
 
-        .category-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; }
-        .cat-btn { padding: 8px 14px; border: 1.5px solid #128c7e; border-radius: 20px; background: white; color: #075e54; font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
-        .cat-btn.selected { background: #128c7e; color: white; }
-
-        .company-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
-        .company-card { border: 2px solid #e4e6eb; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s; background: #fff; }
-        .company-card.selected { border-color: #128c7e; background-color: #e8f5e9; }
-        .company-logo { width: 50px; height: 50px; border-radius: 50%; background: #25d366; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
-        .company-info h3 { font-size: 1rem; color: #1c1e21; margin-bottom: 2px; }
-        .company-info p { font-size: 0.78rem; color: #65676b; }
-
-        #bookingSection { display: none; border-top: 2px dashed #e4e6eb; padding-top: 15px; margin-top: 15px; }
-
         .service-list { display: flex; flex-direction: column; gap: 8px; }
-        .service-item { border: 2px solid #e4e6eb; border-radius: 10px; padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .service-item { border: 2px solid #e4e6eb; border-radius: 10px; padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
         .service-item.selected { border-color: #128c7e; background-color: #e8f5e9; }
         .service-name { font-weight: 600; font-size: 0.95rem; }
         .service-price { font-weight: 700; color: #2e7d32; }
@@ -58,160 +47,85 @@
 
 <div class="app-card">
     <div class="header">
-        <h1>📍 GRADSKI ZAKAZIVAČ</h1>
-        <p>Pronađite uslužne radnje u gradu i zakažite termin</p>
+        <div class="logo-box" id="logoBox">
+            <span>LOGO</span>
+        </div>
+        <h1 id="firmaNaziv">Naziv Firme</h1>
+        <p id="firmaOpis">Opis poslovanja</p>
     </div>
 
     <div class="content">
-        <div class="category-scroll">
-            <button class="cat-btn selected" onclick="filtrirajKategoriju('sve', this)">Sve radnje</button>
-            <button class="cat-btn" onclick="filtrirajKategoriju('auto', this)">🚗 Auto & Vulkanizeri</button>
-            <button class="cat-btn" onclick="filtrirajKategoriju('ljepota', this)">💈 Saloni & Ljepota</button>
-            <button class="cat-btn" onclick="filtrirajKategoriju('zdravlje', this)">🦷 Zdravlje & Medicina</button>
-            <button class="cat-btn" onclick="filtrirajKategoriju('ugostiteljstvo', this)">🍽️ Restorani</button>
+        <div class="section-title">1. Izaberite uslugu</div>
+        <div class="service-list" id="servicesContainer"></div>
+
+        <div class="section-title">2. Izaberite dan</div>
+        <div class="date-picker" id="dateContainer"></div>
+
+        <div class="section-title">3. Slobodni termini</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam slobodne termine...</div>
+        <div class="time-grid" id="timeContainer"></div>
+
+        <div class="section-title">4. Vaši podaci</div>
+        <div class="input-group">
+            <label>Ime i Prezime *</label>
+            <input type="text" id="klijentIme" placeholder="Unesite vaše ime">
+        </div>
+        <div class="input-group">
+            <label id="napomenaLabel">Napomena / Detalji *</label>
+            <input type="text" id="klijentNapomena" placeholder="Unesite napomenu">
         </div>
 
-        <div class="section-title">1. Izaberite radnju u gradu</div>
-        <div class="company-list" id="companyContainer"></div>
-
-        <div id="bookingSection">
-            <div class="section-title" id="odabranaFirmaNaslov">2. Izaberite uslugu</div>
-            <div class="service-list" id="servicesContainer"></div>
-
-            <div class="section-title">3. Izaberite dan</div>
-            <div class="date-picker" id="dateContainer"></div>
-
-            <div class="section-title">4. Slobodni termini za ovu radnju</div>
-            <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam slobodne termine...</div>
-            <div class="time-grid" id="timeContainer"></div>
-
-            <div class="section-title">5. Vaši podaci</div>
-            <div class="input-group">
-                <label>Ime i Prezime *</label>
-                <input type="text" id="klijentIme" placeholder="Unesite vaše ime">
-            </div>
-            <div class="input-group">
-                <label id="napomenaLabel">Napomena / Auto *</label>
-                <input type="text" id="klijentNapomena" placeholder="Unesite napomenu">
-            </div>
-
-            <button class="btn-whatsapp" id="btnSubmit" onclick="rezervisiWA()">💬 ZAKAŽI PREKO WHATSAPPA</button>
-        </div>
+        <button class="btn-whatsapp" id="btnSubmit" onclick="rezervisiWA()">💬 ZAKAŽI PREKO WHATSAPPA</button>
     </div>
 </div>
 
 <script>
-    // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbzpd8cVttpBsWdzMluGvj5u6ZRsody2m3CJIUu6f1b_IVuAis4rBea_FVMwooxIJZVK_w/exec";
-
-    const FIRME = [
-        {
-            id: "guma_pro",
-            kategorija: "auto",
-            naziv: "Vulkanizer 'GUMA PRO'",
-            opis: "Zamjena guma, balansiranje i krpljenje",
-            ikona: "🚗",
-            brojTelefona: "38761255417",
-            labelNapomena: "Auto / Registracija *",
-            placeholderNapomena: "npr. Golf 7 (A12-K-345)",
-            usluge: [
-                { id: 1, naziv: "Zamjena sve 4 gume + Balans", cijena: "40 KM" },
-                { id: 2, naziv: "Krpljenje gume (Injekcija)", cijena: "15 KM" }
-            ]
-        },
-        {
-            id: "beauty_salon",
-            kategorija: "ljepota",
-            naziv: "Frizerski Salon 'BEAUTY'",
-            opis: "Muško i žensko šišanje, tretmani kose",
-            ikona: "💈",
-            brojTelefona: "38762333444",
-            labelNapomena: "Napomena / Želje:",
-            placeholderNapomena: "npr. Pranje kose i feniranje",
-            usluge: [
-                { id: 1, naziv: "Muško šišanje + Pranje", cijena: "15 KM" },
-                { id: 2, naziv: "Žensko šišanje + Feniranje", cijena: "30 KM" }
-            ]
-        },
-        {
-            id: "dent_ordinacija",
-            kategorija: "zdravlje",
-            naziv: "Stomatologija 'DENT'",
-            opis: "Privatna stomatološka ordinacija",
-            ikona: "🦷",
-            brojTelefona: "38763555666",
-            labelNapomena: "Simptomi / Razlog dolaska:",
-            placeholderNapomena: "npr. Pregled i plomba",
-            usluge: [
-                { id: 1, naziv: "Pregled & Konsultacije", cijena: "0 KM" },
-                { id: 2, naziv: "Plomba / Popravka zuba", cijena: "50 KM" }
-            ]
-        },
-        {
-            id: "lago_restoran",
-            kategorija: "ugostiteljstvo",
-            naziv: "Restoran & Lounge 'LAGO'",
-            opis: "Rezervacija stola za ručak i večeru",
-            ikona: "🍽️",
-            brojTelefona: "38764777888",
-            labelNapomena: "Broj osoba & Povod:",
-            placeholderNapomena: "npr. 4 osobe, sto pored prozora",
-            usluge: [
-                { id: 1, naziv: "Sto za 2 osobe", cijena: "Besplatno" },
-                { id: 2, naziv: "Sto za 4 osobe", cijena: "Besplatno" }
-            ]
-        }
-    ];
+    // =========================================================================
+    // PODEŠAVANJE FIRME (Mijenjaš po klijentu)
+    // =========================================================================
+    const FIRMA = {
+        naziv: "Frizerski Salon 'BEAUTY'",
+        opis: "Brzo i jednostavno zakazivanje termina",
+        logoUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQJWRBG3TPlzAiLFRxa2cu3kmf3A0WPtFuHLvgvK6ORlvtcqUFqvf7QEEY2&s=10", // Unesi URL logotipa ili ostavi "" ako nema
+        brojTelefona: "38761255417", // WhatsApp broj bez + ili 00
+        bazaUrl: "https://script.google.com/macros/s/AKfycbzcze3mB4jViy4blvMSQyNX1PKEHHYANfkdXWYvnay3fX9OD3h-WMx6K4VW3X-CN7kxHg/exec",
+        labelNapomena: "Napomena / Posebne želje *",
+        placeholderNapomena: "npr. Pranje kose i feniranje",
+        usluge: [
+            { id: 1, naziv: "Muško šišanje + Pranje", cijena: "15 KM" },
+            { id: 2, naziv: "Žensko šišanje + Feniranje", cijena: "30 KM" },
+            { id: 3, naziv: "Farbanje & Tretman", cijena: "60 KM" }
+        ]
+    };
 
     const SVI_TERMINI = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
-    let aktivnaKategorija = "sve";
-    let odabranaFirma = null;
-    let odabranaUsluga = null;
+    let odabranaUsluga = FIRMA.usluge[0];
     let odabraniDatum = "Danas";
     let odabraniTermin = "";
     let zauzetiTerminiIzBaze = [];
 
-    function prikaziFirme() {
-        const container = document.getElementById('companyContainer');
-        const filtriraneFirme = aktivnaKategorija === "sve" ? FIRME : FIRME.filter(f => f.kategorija === aktivnaKategorija);
+    function inicijalizujPrikaz() {
+        document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
+        document.getElementById('firmaOpis').innerText = FIRMA.opis;
+        document.getElementById('napomenaLabel').innerText = FIRMA.labelNapomena;
+        document.getElementById('klijentNapomena').placeholder = FIRMA.placeholderNapomena;
 
-        container.innerHTML = filtriraneFirme.map(f => `
-            <div class="company-card ${odabranaFirma && odabranaFirma.id === f.id ? 'selected' : ''}" onclick="odaberiFirmu('${f.id}')">
-                <div class="company-logo">${f.ikona}</div>
-                <div class="company-info">
-                    <h3>${f.naziv}</h3>
-                    <p>${f.opis}</p>
-                </div>
-            </div>
-        `).join('');
-    }
+        const logoBox = document.getElementById('logoBox');
+        if (FIRMA.logoUrl && FIRMA.logoUrl.trim() !== "") {
+            logoBox.innerHTML = `<img src="${FIRMA.logoUrl}" alt="Logo">`;
+        } else {
+            logoBox.innerHTML = `<span>LOGO</span>`;
+        }
 
-    function filtrirajKategoriju(kat, btn) {
-        aktivnaKategorija = kat;
-        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        prikaziFirme();
-    }
-
-    function odaberiFirmu(id) {
-        odabranaFirma = FIRME.find(f => f.id === id);
-        odabranaUsluga = odabranaFirma.usluge[0];
-
-        document.getElementById('bookingSection').style.display = 'block';
-        document.getElementById('odabranaFirmaNaslov').innerText = `2. Izaberite uslugu u: ${odabranaFirma.naziv}`;
-        document.getElementById('napomenaLabel').innerText = odabranaFirma.labelNapomena;
-        document.getElementById('klijentNapomena').placeholder = odabranaFirma.placeholderNapomena;
-
-        prikaziFirme();
         prikaziUsluge();
         prikaziDatume();
         ucitajBazuIRebuild();
     }
 
     function prikaziUsluge() {
-        document.getElementById('servicesContainer').innerHTML = odabranaFirma.usluge.map(u => `
-            <div class="service-item ${u.id === odabranaUsluga.id ? 'selected' : ''}" onclick="odabranaUsluga=odabranaFirma.usluge.find(x=>x.id===${u.id});prikaziUsluge();">
+        document.getElementById('servicesContainer').innerHTML = FIRMA.usluge.map(u => `
+            <div class="service-item ${u.id === odabranaUsluga.id ? 'selected' : ''}" onclick="odabranaUsluga=FIRMA.usluge.find(x=>x.id===${u.id});prikaziUsluge();">
                 <span class="service-name">${u.naziv}</span>
                 <span class="service-price">${u.cijena}</span>
             </div>
@@ -231,10 +145,9 @@
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
-        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Šaljemo firma_id za pretragu
-                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma_id=${encodeURIComponent(odabranaFirma.id)}&_t=${Date.now()}`;
+                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
                 
@@ -281,38 +194,35 @@
             return;
         }
         if(!odabraniTermin) {
-            alert("Nema slobodnih termina za izabranu radnju.");
+            alert("Nema slobodnih termina.");
             return;
         }
 
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Šaljemo i ID i Naziv firme u POST zahtjevu
                 const params = new URLSearchParams();
-                params.append('firma_id', odabranaFirma.id);
-                params.append('firma_naziv', odabranaFirma.naziv);
                 params.append('datum', odabraniDatum);
                 params.append('termin', odabraniTermin);
                 params.append('usluga', odabranaUsluga.naziv);
                 params.append('ime', ime);
                 params.append('napomena', napomena);
 
-                await fetch(JEDINSTVENI_BAZA_URL, {
+                await fetch(FIRMA.bazaUrl, {
                     method: "POST",
                     mode: "no-cors",
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: params
                 });
             } catch (e) {
-                console.log("Zahtjev poslat u bazu.");
+                console.log("Zahtjev poslat.");
             }
         }
 
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
-                       `🏢 *Objekat:* ${odabranaFirma.naziv}\n` +
+                       `🏢 *Objekat:* ${FIRMA.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
                        `⏰ *Vrijeme:* ${odabraniTermin}h\n` +
                        `🛠️ *Usluga:* ${odabranaUsluga.naziv} (${odabranaUsluga.cijena})\n\n` +
@@ -325,7 +235,6 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Odmah uklanjamo zakazani termin iz liste slobodnih
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin.trim())) {
             zauzetiTerminiIzBaze.push(odabraniTermin.trim());
         }
@@ -335,11 +244,10 @@
         
         prikaziTermine();
 
-        // Otvaramo WhatsApp
-        window.open(`https://wa.me/${odabranaFirma.brojTelefona}?text=${encoded}`, '_blank');
+        window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
     }
 
-    prikaziFirme();
+    inicijalizujPrikaz();
 </script>
 
 </body>
