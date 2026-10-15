@@ -42,7 +42,7 @@
         .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; }
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
-        .time-slot.busy { background: #ffebe9; color: #d32f2f; border-color: #ffcdd2; cursor: not-allowed; text-decoration: line-through; opacity: 0.65; }
+        .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
 
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
@@ -80,7 +80,7 @@
             <div class="date-picker" id="dateContainer"></div>
 
             <div class="section-title">4. Slobodni termini za ovu radnju</div>
-            <div id="loadingStatus" class="loading" style="display:none;">⏳ Provjeravam slobodne termine u bazi...</div>
+            <div id="loadingStatus" class="loading" style="display:none;">⏳ Provjeravam slobodne termine...</div>
             <div class="time-grid" id="timeContainer"></div>
 
             <div class="section-title">5. Vaši podaci</div>
@@ -100,7 +100,7 @@
 
 <script>
     // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbzXEKSW2p38c2fpcuEiFIC5EczeAIUnEOTu69QbIxAKFvshOcJ9u18EG2bVm5tSIdfRag/exec";
+    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbxm_62tGFnBwXF687KK6rO7khvwMOMeIR1MYvRURKKEYWnA9N2f0oEP5oy5QwizUUHhiw/exec";
 
     const FIRME = [
         {
@@ -225,15 +225,13 @@
         `).join('');
     }
 
-    // ČITANJE ZAUZETIH TERMINA DANOJ FIRMI ZA DANI DATUM
     async function ucitajBazuIRebuild() {
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Pozivamo Google Script sa nazivom firme i izabranim datumom
-                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.naziv)}`;
+                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.naziv)}&t=${new Date().getTime()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
                 zauzetiTerminiIzBaze = json.zauzeti || [];
@@ -244,7 +242,6 @@
         
         document.getElementById('loadingStatus').style.display = 'none';
         
-        // Postavljamo prvi slobodan termin kao odabran
         let prviSlobodan = SVI_TERMINI.find(t => !zauzetiTerminiIzBaze.includes(t));
         odabraniTermin = prviSlobodan || "";
         
@@ -277,28 +274,24 @@
             return;
         }
 
-        // 1. ZAPISUJEMO DIREKTNO U GOOGLE SHEETS
+        // SLANJE PODATAKA DIREKTNO U GOOGLE SHEET
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
-            try {
-                fetch(JEDINSTVENI_BAZA_URL, {
-                    method: "POST",
-                    mode: "no-cors",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        firma: odabranaFirma.naziv,
-                        datum: odabraniDatum,
-                        termin: odabraniTermin,
-                        usluga: odabranaUsluga.naziv,
-                        ime: ime,
-                        napomena: napomena
-                    })
-                });
-            } catch(e) {
-                console.log("Greška pri upisu u bazu.");
-            }
+            const payload = new URLSearchParams();
+            payload.append('firma', odabranaFirma.naziv);
+            payload.append('datum', odabraniDatum);
+            payload.append('termin', odabraniTermin);
+            payload.append('usluga', odabranaUsluga.naziv);
+            payload.append('ime', ime);
+            payload.append('napomena', napomena);
+
+            fetch(JEDINSTVENI_BAZA_URL, {
+                method: "POST",
+                mode: "no-cors",
+                body: payload
+            });
         }
 
-        // 2. OTVARAMO WHATSAPP PORUKU SA PORUKOM ZA POTVRDU
+        // SLANJE WHATSAPP PORUKE
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
                        `🏢 *Objekat:* ${odabranaFirma.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
@@ -310,11 +303,12 @@
                        
         const encoded = encodeURIComponent(poruka);
         
-        // Osvežavamo prikaz termina na stranici (tako da izabrani termin odmah pocrveni)
-        zauzetiTerminiIzBaze.push(odabraniTermin);
+        // Prikazujemo izabrani termin odmah kao prekrižen/crven na ekranu
+        if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
+            zauzetiTerminiIzBaze.push(odabraniTermin);
+        }
         prikaziTermine();
 
-        // Otvaramo WhatsApp
         window.open(`https://wa.me/${odabranaFirma.brojTelefona}?text=${encoded}`, '_blank');
     }
 
