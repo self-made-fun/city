@@ -59,7 +59,7 @@
         <div class="date-picker" id="dateContainer"></div>
 
         <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam termine iz baze...</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam najnovije termine...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -76,6 +76,16 @@
     </div>
 </div>
 
+<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+<form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
+    <input type="hidden" name="action" value="upisi">
+    <input type="hidden" name="datum" id="formDatum">
+    <input type="hidden" name="termin" id="formTermin">
+    <input type="hidden" name="usluga" id="formUsluga">
+    <input type="hidden" name="ime" id="formIme">
+    <input type="hidden" name="napomena" id="formNapomena">
+</form>
+
 <script>
     // =========================================================================
     // PODEŠAVANJE FIRME
@@ -84,8 +94,8 @@
         naziv: "Frizerski Salon 'BEAUTY'",
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
-        brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbyud--kkqwfriBEeSwSVL-fZA1goiKTIJzsqmS_kYJZfPYIWqEQZdhBcwv4oLvo96-eyw/exec",
+        brojTelefona: "38761111222", 
+        bazaUrl: "https://script.google.com/macros/s/AKfycbyyov372XY14zOpwbH3x0PGZHc60WTIbE89BxRPC7PUNQtrcuBVAqU4sj_fBeIM-HqlBw/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -147,14 +157,23 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
-                let res = await fetch(queryUrl, { redirect: 'follow', cache: 'no-store' });
+                // Forsiramo potpuno zaobilaženje keša jedinstvenim random brojem i reload kešom
+                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&rand=${Math.random()}&_t=${Date.now()}`;
+                let res = await fetch(queryUrl, { 
+                    method: 'GET',
+                    redirect: 'follow', 
+                    cache: 'reload',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
                 let json = await res.json();
                 
                 if (json && json.zauzeti) {
                     zauzetiTerminiIzBaze = json.zauzeti.map(function(t) {
                         let clean = String(t).trim();
-                        if (clean.indexOf('0') === 0) clean = clean.substring(1);
+                        if (clean.indexOf('0') === 0 && clean.indexOf(':') > 1) clean = clean.substring(1);
                         return clean;
                     });
                 }
@@ -193,7 +212,7 @@
         }).join('');
     }
 
-    async function rezervisiWA() {
+    function rezervisiWA() {
         const ime = document.getElementById('klijentIme').value.trim();
         const napomena = document.getElementById('klijentNapomena').value.trim();
         const btn = document.getElementById('btnSubmit');
@@ -211,19 +230,15 @@
         btn.innerText = "⏳ Upisujem u bazu...";
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
-            try {
-                let upisUrl = `${FIRMA.bazaUrl}?action=upisi` +
-                              `&datum=${encodeURIComponent(odabraniDatum)}` +
-                              `&termin=${encodeURIComponent(odabraniTermin)}` +
-                              `&usluga=${encodeURIComponent(odabranaUsluga.naziv)}` +
-                              `&ime=${encodeURIComponent(ime)}` +
-                              `&napomena=${encodeURIComponent(napomena)}` +
-                              `&_t=${Date.now()}`;
-
-                await fetch(upisUrl, { redirect: 'follow', cache: 'no-store' });
-            } catch (e) {
-                console.log("Greška pri upisu:", e);
-            }
+            const form = document.getElementById('hiddenForm');
+            form.action = FIRMA.bazaUrl;
+            document.getElementById('formDatum').value = odabraniDatum;
+            document.getElementById('formTermin').value = odabraniTermin;
+            document.getElementById('formUsluga').value = odabranaUsluga.naziv;
+            document.getElementById('formIme').value = ime;
+            document.getElementById('formNapomena').value = napomena;
+            
+            form.submit();
         }
 
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
@@ -235,9 +250,6 @@
                        `📝 *Napomena:* ${napomena}`;
                        
         const encoded = encodeURIComponent(poruka);
-        
-        btn.disabled = false;
-        btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
@@ -250,7 +262,11 @@
         
         prikaziTermine();
 
-        window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
+            window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
+        }, 800);
     }
 
     inicijalizujPrikaz();
