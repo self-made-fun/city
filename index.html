@@ -33,6 +33,8 @@
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
         .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
 
+        .no-slots { grid-column: span 3; text-align: center; color: #d32f2f; font-weight: 600; padding: 15px; background: #ffebe9; border-radius: 8px; font-size: 0.85rem; }
+
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
         .input-group input { width: 100%; padding: 11px; border: 1.5px solid #cccccc; border-radius: 8px; outline: none; }
@@ -58,8 +60,8 @@
         <div class="section-title">2. Izaberite dan</div>
         <div class="date-picker" id="dateContainer"></div>
 
-        <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam termine iz baze...</div>
+        <div class="section-title">3. Slobodni termini</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Provjeravam bazu termina...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -84,8 +86,8 @@
         naziv: "Frizerski Salon 'BEAUTY'",
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
-        brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbwgew2n2WhAw3k9zWVQM6WqO5JWWppV1frHplcjCPPNOC_3eoqof1rnmIQkU9ImFxLBug/exec",
+        brojTelefona: "38761255417, 
+        bazaUrl: "https://script.google.com/macros/s/AKfycbxte3AX5zLPXNYmYpkBNUobKQST9FSM5vXbHlJ8AO0a-mPn0CiaZVlDXkat3OAlhwe_4w/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -136,7 +138,7 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
+                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_nocache=${Date.now()}`;
                 let res = await fetch(queryUrl, { redirect: 'follow', cache: 'no-store' });
                 let json = await res.json();
                 
@@ -150,15 +152,13 @@
         
         document.getElementById('loadingStatus').style.display = 'none';
         
-        let prviSlobodan = SVI_TERMINI.find(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = prviSlobodan || "";
-        
         prikaziTermine();
     }
 
     function prikaziTermine() {
         const container = document.getElementById('timeContainer');
-
+        
+        // Prikazujemo sve termine, ali zauzeti dobijaju klasu 'busy' i ne mogu se kliknuti
         container.innerHTML = SVI_TERMINI.map(t => {
             const isBusy = zauzetiTerminiIzBaze.includes(t);
             const isSelected = t === odabraniTermin && !isBusy;
@@ -169,6 +169,12 @@
                 </div>
             `;
         }).join('');
+
+        // Ako je trenutno odabrani termin postao zauzet, prebaci na prvi slobodan
+        if (zauzetiTerminiIzBaze.includes(odabraniTermin)) {
+            let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+            odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
+        }
     }
 
     async function rezervisiWA() {
@@ -180,8 +186,8 @@
             alert("Popunite vaše ime i napomenu.");
             return;
         }
-        if(!odabraniTermin) {
-            alert("Ovaj termin je zauzet. Izaberite drugi.");
+        if(!odabraniTermin || zauzetiTerminiIzBaze.includes(odabraniTermin)) {
+            alert("Ovaj termin je već zauzet. Izaberite slobodan.");
             return;
         }
 
@@ -197,7 +203,7 @@
                               `&usluga=${encodeURIComponent(odabranaUsluga.naziv)}` +
                               `&ime=${encodeURIComponent(ime)}` +
                               `&napomena=${encodeURIComponent(napomena)}` +
-                              `&_t=${Date.now()}`;
+                              `&_nocache=${Date.now()}`;
 
                 await fetch(upisUrl, { redirect: 'follow', cache: 'no-store' });
             } catch (e) {
@@ -218,12 +224,10 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
+        // Odmah dodaj u lokalnu listu zauzetih da se odmah vidi ❌
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
-        
-        let prviSlobodan = SVI_TERMINI.find(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = prviSlobodan || "";
         
         prikaziTermine();
 
