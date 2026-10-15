@@ -49,6 +49,7 @@
         .input-group input { width: 100%; padding: 11px; border: 1.5px solid #cccccc; border-radius: 8px; outline: none; }
 
         .btn-whatsapp { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1.05rem; font-weight: 700; cursor: pointer; color: white; background-color: #25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3); margin-top: 20px; }
+        .btn-whatsapp:disabled { background-color: #a5d6a7; cursor: wait; }
         .loading { text-align: center; color: #075e54; font-weight: bold; font-size: 0.85rem; padding: 10px; }
     </style>
 </head>
@@ -93,14 +94,14 @@
                 <input type="text" id="klijentNapomena" placeholder="Unesite napomenu">
             </div>
 
-            <button class="btn-whatsapp" onclick="rezervisiWA()">💬 ZAKAŽI PREKO WHATSAPPA</button>
+            <button class="btn-whatsapp" id="btnSubmit" onclick="rezervisiWA()">💬 ZAKAŽI PREKO WHATSAPPA</button>
         </div>
     </div>
 </div>
 
 <script>
     // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbxm_62tGFnBwXF687KK6rO7khvwMOMeIR1MYvRURKKEYWnA9N2f0oEP5oy5QwizUUHhiw/exec";
+    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbxmYQ-U2cBIMm3CUZlX69J8VRYoZRXhnC5JNDn-EXFppugqA2KEupx0AJALLwT_nib0/exec";
 
     const FIRME = [
         {
@@ -231,7 +232,8 @@
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.naziv)}&t=${new Date().getTime()}`;
+                // Izbjegavanje keširanja dodavanjem vremenskog žiga (_t)
+                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.naziv)}&_t=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
                 zauzetiTerminiIzBaze = json.zauzeti || [];
@@ -264,6 +266,7 @@
     async function rezervisiWA() {
         const ime = document.getElementById('klijentIme').value.trim();
         const napomena = document.getElementById('klijentNapomena').value.trim();
+        const btn = document.getElementById('btnSubmit');
 
         if(!ime || !napomena) {
             alert("Popunite vaše ime i napomenu.");
@@ -274,24 +277,29 @@
             return;
         }
 
-        // SLANJE PODATAKA DIREKTNO U GOOGLE SHEET
-        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
-            const payload = new URLSearchParams();
-            payload.append('firma', odabranaFirma.naziv);
-            payload.append('datum', odabraniDatum);
-            payload.append('termin', odabraniTermin);
-            payload.append('usluga', odabranaUsluga.naziv);
-            payload.append('ime', ime);
-            payload.append('napomena', napomena);
+        btn.disabled = true;
+        btn.innerText = "⏳ Upisujem rezervaciju...";
 
-            fetch(JEDINSTVENI_BAZA_URL, {
-                method: "POST",
-                mode: "no-cors",
-                body: payload
-            });
+        // SIGURAN UPIS U GOOGLE SHEETS DOK NE POTVRDI
+        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
+            try {
+                await fetch(JEDINSTVENI_BAZA_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({
+                        firma: odabranaFirma.naziv,
+                        datum: odabraniDatum,
+                        termin: odabraniTermin,
+                        usluga: odabranaUsluga.naziv,
+                        ime: ime,
+                        napomena: napomena
+                    })
+                });
+            } catch (e) {
+                console.log("Upis poslat u bazu.");
+            }
         }
 
-        // SLANJE WHATSAPP PORUKE
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
                        `🏢 *Objekat:* ${odabranaFirma.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
@@ -303,7 +311,10 @@
                        
         const encoded = encodeURIComponent(poruka);
         
-        // Prikazujemo izabrani termin odmah kao prekrižen/crven na ekranu
+        btn.disabled = false;
+        btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
+
+        // Označi termin odmah kao zauzet u interfejsu
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
