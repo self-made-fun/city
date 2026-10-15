@@ -85,7 +85,7 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbxte3AX5zLPXNYmYpkBNUobKQST9FSM5vXbHlJ8AO0a-mPn0CiaZVlDXkat3OAlhwe_4w/exec", // Zamijeni svojim pravim Apps Script URL-om
+        bazaUrl: "https://script.google.com/macros/s/AKfycbyjkSF-XDRYCZU0s7_uFf2kN_HHVySk16xz2Yc8W_IIeZcuo_3FDggxnqgO2aEYBprmRg/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -94,7 +94,6 @@
         ]
     };
 
-    // USKLAĐENO BEZ VODEĆE NULE KAO U BAZI (9:00 umjesto 09:00)
     const SVI_TERMINI = ["9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
     let odabranaUsluga = FIRMA.usluge[0];
@@ -153,11 +152,9 @@
                 let json = await res.json();
                 
                 if (json && json.zauzeti) {
-                    // Normalizujemo i uklanjamo vodeće nule i razmake da se poklopi 100%
                     zauzetiTerminiIzBaze = json.zauzeti.map(function(t) {
                         let clean = String(t).trim();
-                        // Ako baza vrati sa 0 (npr 09:00), pretvorimo u 9:00 radi sigurnosti
-                        if (clean.startsWith('0')) clean = clean.substring(1);
+                        if (clean.indexOf('0') === 0) clean = clean.substring(1);
                         return clean;
                     });
                 }
@@ -224,7 +221,7 @@
                               `&_t=${Date.now()}`;
 
                 await fetch(upisUrl, { redirect: 'follow', cache: 'no-store' });
-            }	catch (e) {
+            } catch (e) {
                 console.log("Greška pri upisu:", e);
             }
         }
