@@ -76,6 +76,7 @@
     </div>
 </div>
 
+<!-- Skrivena forma i iframe za pouzdan upis bez CORS blokada -->
 <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 <form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
     <input type="hidden" name="action" value="upisi">
@@ -95,7 +96,7 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbyyov372XY14zOpwbH3x0PGZHc60WTIbE89BxRPC7PUNQtrcuBVAqU4sj_fBeIM-HqlBw/exec",
+        bazaUrl: "https://script.google.com/macros/s/AKfycbyLXynTf4Zu9vP9MZDxFhc_PENMca3dpEcBCQFvtcQTtLuLWfqMaGCz72XLqOOUzXateA/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -110,6 +111,31 @@
     let odabraniDatum = "Danas";
     let odabraniTermin = "";
     let zauzetiTerminiIzBaze = [];
+
+    // JSONP funkcija za probijanje CORS-a i keširanja na GitHub Pages
+    function sendJsonp(url) {
+        return new Promise((resolve, reject) => {
+            const cbName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+            const script = document.createElement('script');
+            
+            const delimiter = url.includes('?') ? '&' : '?';
+            script.src = url + delimiter + 'callback=' + cbName + '&_nocache=' + Date.now();
+
+            window[cbName] = function(data) {
+                delete window[cbName];
+                if (script.parentNode) script.parentNode.removeChild(script);
+                resolve(data);
+            };
+
+            script.onerror = function() {
+                delete window[cbName];
+                if (script.parentNode) script.parentNode.removeChild(script);
+                reject(new Error("JSONP greška"));
+            };
+
+            document.body.appendChild(script);
+        });
+    }
 
     function inicijalizujPrikaz() {
         document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
@@ -157,21 +183,11 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Forsiramo potpuno zaobilaženje keša jedinstvenim random brojem i reload kešom
-                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&rand=${Math.random()}&_t=${Date.now()}`;
-                let res = await fetch(queryUrl, { 
-                    method: 'GET',
-                    redirect: 'follow', 
-                    cache: 'reload',
-                    headers: {
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache'
-                    }
-                });
-                let json = await res.json();
+                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}`;
+                let res = await sendJsonp(queryUrl);
                 
-                if (json && json.zauzeti) {
-                    zauzetiTerminiIzBaze = json.zauzeti.map(function(t) {
+                if (res && res.zauzeti) {
+                    zauzetiTerminiIzBaze = res.zauzeti.map(function(t) {
                         let clean = String(t).trim();
                         if (clean.indexOf('0') === 0 && clean.indexOf(':') > 1) clean = clean.substring(1);
                         return clean;
@@ -229,6 +245,7 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
+        // Upis kroz skrivenu formu
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             const form = document.getElementById('hiddenForm');
             form.action = FIRMA.bazaUrl;
