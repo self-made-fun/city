@@ -102,7 +102,7 @@
 
 <script>
     // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbygI2IyxilAyd16OGxx6jXlwj1oNb_Dlr9StI06K7WcWae0gc8hLadrEfkgaNM7uZntHg/exec";
+    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbysFdvHIDRE4j1wrAROpaBj69bER8AMYI_y_KaDi3XqamUnuxab8K96rl2rODtOsoI7FQ/exec";
 
     const FIRME = [
         {
@@ -233,10 +233,13 @@
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.naziv)}&_t=${Date.now()}`;
+                // Šaljemo čist odabranaFirma.id (npr. guma_pro) radi nepogrešivog poređenja
+                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.id)}&_t=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
-                zauzetiTerminiIzBaze = json.zauzeti || [];
+                
+                // Osiguravamo da su svi pročitani termini čisti stringovi bez nevidljivih razmaka
+                zauzetiTerminiIzBaze = (json.zauzeti || []).map(t => String(t).trim());
             } catch (e) {
                 console.log("Greška pri čitanju baze.");
             }
@@ -244,17 +247,14 @@
         
         document.getElementById('loadingStatus').style.display = 'none';
         
-        // Prikupi samo slobodne termine
-        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
         odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
         
         prikaziTermine();
     }
 
     function prikaziTermine() {
-        // FILTRIRAMO I PRIKAZUJEMO ISKLJUČIVO SLOBODNE TERMINE
-        let slobodniTermini = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
-        
+        let slobodniTermini = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
         const container = document.getElementById('timeContainer');
         
         if (slobodniTermini.length === 0) {
@@ -295,7 +295,7 @@
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({
-                        firma: odabranaFirma.naziv,
+                        firma: odabranaFirma.id, // U bazu pišemo čist ID (guma_pro)
                         datum: odabraniDatum,
                         termin: odabraniTermin,
                         usluga: odabranaUsluga.naziv,
@@ -322,13 +322,12 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Odmah izbaci taj termin iz lokalnog stanja da nestane sa prikaza
+        // Dodaj u lokalnu listu zauzetih i ponovo iscrtaj interfejs
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
         
-        // Postavi sljedeći slobodan termin kao odabran
-        let preostaliSlobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+        let preostaliSlobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
         odabraniTermin = preostaliSlobodni.length > 0 ? preostaliSlobodni[0] : "";
         
         prikaziTermine();
