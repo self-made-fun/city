@@ -102,11 +102,11 @@
 
 <script>
     // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbysFdvHIDRE4j1wrAROpaBj69bER8AMYI_y_KaDi3XqamUnuxab8K96rl2rODtOsoI7FQ/exec";
+    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbwbqWXgtzFNLDnLue-Kce8NJJs5Fe4NTyVdp2nR4NvqSvXuwSYxtbB0j0FWtmp53h9JqA/exec";
 
     const FIRME = [
         {
-            id: "GUMA PRO",
+            id: "guma_pro",
             kategorija: "auto",
             naziv: "Vulkanizer 'GUMA PRO'",
             opis: "Zamjena guma, balansiranje i krpljenje",
@@ -233,12 +233,10 @@
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Šaljemo čist odabranaFirma.id (npr. guma_pro) radi nepogrešivog poređenja
-                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.id)}&_t=${Date.now()}`;
+                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.id)}&_cacheBuster=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
                 
-                // Osiguravamo da su svi pročitani termini čisti stringovi bez nevidljivih razmaka
                 zauzetiTerminiIzBaze = (json.zauzeti || []).map(t => String(t).trim());
             } catch (e) {
                 console.log("Greška pri čitanju baze.");
@@ -287,24 +285,27 @@
         }
 
         btn.disabled = true;
-        btn.innerText = "⏳ Upisujem rezervaciju...";
+        btn.innerText = "⏳ Upisujem u bazu...";
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
+                // Slanje forme preko URLSearchParams formata koji odmah prolazi
+                const params = new URLSearchParams();
+                params.append('firma', odabranaFirma.id);
+                params.append('datum', odabraniDatum);
+                params.append('termin', odabraniTermin);
+                params.append('usluga', odabranaUsluga.naziv);
+                params.append('ime', ime);
+                params.append('napomena', napomena);
+
                 await fetch(JEDINSTVENI_BAZA_URL, {
                     method: "POST",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({
-                        firma: odabranaFirma.id, // U bazu pišemo čist ID (guma_pro)
-                        datum: odabraniDatum,
-                        termin: odabraniTermin,
-                        usluga: odabranaUsluga.naziv,
-                        ime: ime,
-                        napomena: napomena
-                    })
+                    mode: "no-cors",
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params
                 });
             } catch (e) {
-                console.log("Upis poslat u bazu.");
+                console.log("Zahtjev poslat u bazu.");
             }
         }
 
@@ -322,9 +323,9 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Dodaj u lokalnu listu zauzetih i ponovo iscrtaj interfejs
-        if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            zauzetiTerminiIzBaze.push(odabraniTermin);
+        // Dodajemo odmah zakazani termin u listu zauzetih na klijentu
+        if (!zauzetiTerminiIzBaze.includes(odabraniTermin.trim())) {
+            zauzetiTerminiIzBaze.push(odabraniTermin.trim());
         }
         
         let preostaliSlobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
@@ -332,6 +333,7 @@
         
         prikaziTermine();
 
+        // Otvaramo WhatsApp
         window.open(`https://wa.me/${odabranaFirma.brojTelefona}?text=${encoded}`, '_blank');
     }
 
