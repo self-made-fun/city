@@ -46,9 +46,7 @@
 
 <div class="app-card">
     <div class="header">
-        <div class="logo-box" id="logoBox">
-            <span>LOGO</span>
-        </div>
+        <div class="logo-box" id="logoBox"><span>LOGO</span></div>
         <h1 id="firmaNaziv">Naziv Firme</h1>
         <p id="firmaOpis">Opis poslovanja</p>
     </div>
@@ -61,7 +59,7 @@
         <div class="date-picker" id="dateContainer"></div>
 
         <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Povezujem se sa bazom...</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam termine iz baze...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -78,17 +76,6 @@
     </div>
 </div>
 
-<!-- SKRIVENA FORMA I IFRAME ZA GARANTOVAN UPIS BEZ CORS-A -->
-<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-<form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
-    <input type="hidden" name="action" value="upisi">
-    <input type="hidden" name="datum" id="formDatum">
-    <input type="hidden" name="termin" id="formTermin">
-    <input type="hidden" name="usluga" id="formUsluga">
-    <input type="hidden" name="ime" id="formIme">
-    <input type="hidden" name="napomena" id="formNapomena">
-</form>
-
 <script>
     // =========================================================================
     // PODEŠAVANJE FIRME
@@ -98,13 +85,12 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbzi_MsjfvyPvHJx-OMxVxdxxw-acXVruAf8wFF4tIxipOplprmLBqIIHsDGldYA8t86YA/exec",
+        bazaUrl: "https://script.google.com/macros/s/AKfycbwgew2n2WhAw3k9zWVQM6WqO5JWWppV1frHplcjCPPNOC_3eoqof1rnmIQkU9ImFxLBug/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
             { id: 1, naziv: "Muško šišanje + Pranje", cijena: "15 KM" },
-            { id: 2, naziv: "Žensko šišanje + Feniranje", cijena: "30 KM" },
-            { id: 3, naziv: "Farbanje & Tretman", cijena: "60 KM" }
+            { id: 2, naziv: "Žensko šišanje + Feniranje", cijena: "30 KM" }
         ]
     };
 
@@ -115,43 +101,11 @@
     let odabraniTermin = "";
     let zauzetiTerminiIzBaze = [];
 
-    // JSONP POZIV - ČITANJE IZ BAZA
-    function sendJsonp(url) {
-        return new Promise((resolve, reject) => {
-            const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-            const script = document.createElement('script');
-            
-            const delimiter = url.includes('?') ? '&' : '?';
-            script.src = url + delimiter + 'callback=' + cbName;
-
-            window[cbName] = function(data) {
-                delete window[cbName];
-                if (script.parentNode) script.parentNode.removeChild(script);
-                resolve(data);
-            };
-
-            script.onerror = function() {
-                delete window[cbName];
-                if (script.parentNode) script.parentNode.removeChild(script);
-                reject(new Error("Mrežna greška pri komunikaciji sa bazom."));
-            };
-
-            document.body.appendChild(script);
-        });
-    }
-
     function inicijalizujPrikaz() {
         document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
         document.getElementById('firmaOpis').innerText = FIRMA.opis;
         document.getElementById('napomenaLabel').innerText = FIRMA.labelNapomena;
         document.getElementById('klijentNapomena').placeholder = FIRMA.placeholderNapomena;
-
-        const logoBox = document.getElementById('logoBox');
-        if (FIRMA.logoUrl && FIRMA.logoUrl.trim() !== "") {
-            logoBox.innerHTML = `<img src="${FIRMA.logoUrl}" alt="Logo">`;
-        } else {
-            logoBox.innerHTML = `<span>LOGO</span>`;
-        }
 
         prikaziUsluge();
         prikaziDatume();
@@ -182,14 +136,15 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_nocache=${Date.now()}`;
-                let res = await sendJsonp(queryUrl);
+                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
+                let res = await fetch(queryUrl, { redirect: 'follow', cache: 'no-store' });
+                let json = await res.json();
                 
-                if (res && res.zauzeti) {
-                    zauzetiTerminiIzBaze = res.zauzeti.map(t => String(t).trim());
+                if (json && json.zauzeti) {
+                    zauzetiTerminiIzBaze = json.zauzeti.map(t => String(t).trim());
                 }
             } catch (e) {
-                console.error("Greška pri spajanju na bazu:", e);
+                console.log("Greška pri čitanju baze:", e);
             }
         }
         
@@ -216,7 +171,7 @@
         }).join('');
     }
 
-    function rezervisiWA() {
+    async function rezervisiWA() {
         const ime = document.getElementById('klijentIme').value.trim();
         const napomena = document.getElementById('klijentNapomena').value.trim();
         const btn = document.getElementById('btnSubmit');
@@ -233,17 +188,21 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // UPIS U GOOGLE SHEETS DOK NE POTVRDI SA SKRIVENOM FORMOM (BEZ CORS GREŠKE)
+        // UPIS U GOOGLE SHEETS
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
-            const form = document.getElementById('hiddenForm');
-            form.action = FIRMA.bazaUrl;
-            document.getElementById('formDatum').value = odabraniDatum;
-            document.getElementById('formTermin').value = odabraniTermin;
-            document.getElementById('formUsluga').value = odabranaUsluga.naziv;
-            document.getElementById('formIme').value = ime;
-            document.getElementById('formNapomena').value = napomena;
-            
-            form.submit();
+            try {
+                let upisUrl = `${FIRMA.bazaUrl}?action=upisi` +
+                              `&datum=${encodeURIComponent(odabraniDatum)}` +
+                              `&termin=${encodeURIComponent(odabraniTermin)}` +
+                              `&usluga=${encodeURIComponent(odabranaUsluga.naziv)}` +
+                              `&ime=${encodeURIComponent(ime)}` +
+                              `&napomena=${encodeURIComponent(napomena)}` +
+                              `&_t=${Date.now()}`;
+
+                await fetch(upisUrl, { redirect: 'follow', cache: 'no-store' });
+            } catch (e) {
+                console.log("Greška pri upisu:", e);
+            }
         }
 
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
@@ -255,8 +214,10 @@
                        `📝 *Napomena:* ${napomena}`;
                        
         const encoded = encodeURIComponent(poruka);
+        
+        btn.disabled = false;
+        btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Označi odmah lokalno
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
@@ -266,11 +227,7 @@
         
         prikaziTermine();
 
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
-            window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
-        }, 600);
+        window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
     }
 
     inicijalizujPrikaz();
