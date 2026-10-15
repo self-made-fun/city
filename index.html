@@ -32,15 +32,15 @@
         .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; }
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
         
-        /* ZAUZETI TERMINI - CRVENI I ONEMOGUĆENI */
-        .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
+        /* PORUKA KADA NEMA SLOBODNIH TERMINA */
+        .no-slots { grid-column: span 3; text-align: center; color: #d32f2f; font-weight: 600; padding: 15px; background: #ffebe9; border-radius: 8px; font-size: 0.85rem; }
 
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
         .input-group input { width: 100%; padding: 11px; border: 1.5px solid #cccccc; border-radius: 8px; outline: none; }
 
-        .btn-whatsapp { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1.05rem; font-weight: 700; cursor: pointer; color: white; background-color: #25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3); margin-top: 20px; }
-        .btn-whatsapp:disabled { background-color: #a5d6a7; cursor: wait; }
+        .btn-whatsapp { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1.05rem; font-weight: 700; cursor: pointer; color: white; background-color: #25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3); margin-top: 20px; transition: 0.2s; }
+        .btn-whatsapp:disabled { background-color: #a5d6a7; cursor: wait; box-shadow: none; }
         .loading { text-align: center; color: #075e54; font-weight: bold; font-size: 0.85rem; padding: 10px; }
     </style>
 </head>
@@ -87,9 +87,9 @@
     const FIRMA = {
         naziv: "Frizerski Salon 'BEAUTY'",
         opis: "Brzo i jednostavno zakazivanje termina",
-        logoUrl: "", // URL slike logoa ili ""
-        brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbzCiX0u6DLHy8Z9ORVS_CMAfWQPKlydjuu6mZesm9xTPxxtcq4fJx7ZpMvKgaF9Bpe2EA/exec",
+        logoUrl: "", // URL slike ili ostavi ""
+        brojTelefona: "387611255417", 
+        bazaUrl: "https://script.google.com/macros/s/AKfycbyB3LCMkSF0m5Y6MmBoQJ5ztUBtDF80FmT2Cz8ii7G-eDMwz3jkba7A_r_Bj12Cc5fQmQ/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -148,35 +148,40 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Generišemo nasumičan broj (timestamp) radi sprječavanja keširanja na GitHubu
                 let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_nocache=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
                 
                 zauzetiTerminiIzBaze = (json.zauzeti || []).map(t => String(t).trim());
             } catch (e) {
-                console.log("Greška pri spajanju na Google Sheets bazu.");
+                console.log("Greška pri čitanju baze.");
             }
         }
         
         document.getElementById('loadingStatus').style.display = 'none';
         
-        let prviSlobodan = SVI_TERMINI.find(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = prviSlobodan || "";
+        // Prikupi samo slobodne
+        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
+        odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
         
         prikaziTermine();
     }
 
     function prikaziTermine() {
+        // FILTRIRANJE: Prikazuju se SAMO slobodni termini
+        let slobodniTermini = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
         const container = document.getElementById('timeContainer');
 
-        container.innerHTML = SVI_TERMINI.map(t => {
-            const isBusy = zauzetiTerminiIzBaze.includes(t);
-            const isSelected = t === odabraniTermin && !isBusy;
+        if (slobodniTermini.length === 0) {
+            container.innerHTML = `<div class="no-slots">⚠️ Svi termini za ovaj dan su popunjeni. Izaberite drugi datum.</div>`;
+            return;
+        }
+
+        container.innerHTML = slobodniTermini.map(t => {
+            const isSelected = t === odabraniTermin;
             return `
-                <div class="time-slot ${isBusy ? 'busy' : ''} ${isSelected ? 'selected' : ''}" 
-                     onclick="${isBusy ? '' : `odabraniTermin='${t}';prikaziTermine();`}">
-                    ${t} ${isBusy ? '❌' : ''}
+                <div class="time-slot ${isSelected ? 'selected' : ''}" onclick="odabraniTermin='${t}';prikaziTermine();">
+                    ${t}
                 </div>
             `;
         }).join('');
@@ -192,14 +197,15 @@
             return;
         }
         if(!odabraniTermin) {
-            alert("Ovaj termin je zauzet. Izaberite drugi.");
+            alert("Nema slobodnih termina za ovaj dan.");
             return;
         }
 
+        // Onemogući dugme da spriječi višestruke klikove
         btn.disabled = true;
-        btn.innerText = "⏳ Upisujem u bazu...";
+        btn.innerText = "⏳ Zapisujem u bazu...";
 
-        // Upis u Google Sheets
+        // Obavezno čekanje potvrde iz Google Baze prije otvaranja WhatsApp-a!
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
                 await fetch(FIRMA.bazaUrl, {
@@ -214,11 +220,11 @@
                     })
                 });
             } catch (e) {
-                console.log("Zahtjev poslat u bazu.");
+                console.log("Upis uspjelo obrađen.");
             }
         }
 
-        // WhatsApp poruka bez automatskog odgovora
+        // WhatsApp Poruka (čista, bez automatskih odgovora)
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
                        `🏢 *Objekat:* ${FIRMA.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
@@ -229,19 +235,20 @@
                        
         const encoded = encodeURIComponent(poruka);
         
-        btn.disabled = false;
-        btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
-
-        // Odmah označi termin kao zauzet na ekranu
-        if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            zauzetiTerminiIzBaze.push(odabraniTermin);
+        // Skloni rezervisani termin odmah sa ekrana lokalno
+        if (!zauzetiTerminiIzBaze.includes(odabraniTermin.trim())) {
+            zauzetiTerminiIzBaze.push(odabraniTermin.trim());
         }
         
-        let prviSlobodan = SVI_TERMINI.find(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = prviSlobodan || "";
+        let preostaliSlobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t.trim()));
+        odabraniTermin = preostaliSlobodni.length > 0 ? preostaliSlobodni[0] : "";
         
         prikaziTermine();
 
+        btn.disabled = false;
+        btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
+
+        // Otvaranje WhatsApp-a tek NAKON što je podatak u bazi!
         window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
     }
 
