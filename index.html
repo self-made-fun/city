@@ -42,7 +42,8 @@
         .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; }
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
-        .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
+
+        .no-slots { grid-column: span 3; text-align: center; color: #d32f2f; font-weight: 600; padding: 15px; background: #ffebe9; border-radius: 8px; font-size: 0.85rem; }
 
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
@@ -81,7 +82,7 @@
             <div class="date-picker" id="dateContainer"></div>
 
             <div class="section-title">4. Slobodni termini za ovu radnju</div>
-            <div id="loadingStatus" class="loading" style="display:none;">⏳ Provjeravam slobodne termine...</div>
+            <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam slobodne termine...</div>
             <div class="time-grid" id="timeContainer"></div>
 
             <div class="section-title">5. Vaši podaci</div>
@@ -101,7 +102,7 @@
 
 <script>
     // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbxmYQ-U2cBIMm3CUZlX69J8VRYoZRXhnC5JNDn-EXFppugqA2KEupx0AJALLwT_nib0/exec";
+    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbxprZE2IL4qDvENkCUup6uQ9Pks95OthayNdY34nndxVSg9fAVXEIIxpoOjccTy0Zm7/exec";
 
     const FIRME = [
         {
@@ -232,7 +233,6 @@
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Izbjegavanje keširanja dodavanjem vremenskog žiga (_t)
                 let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.naziv)}&_t=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
@@ -244,20 +244,29 @@
         
         document.getElementById('loadingStatus').style.display = 'none';
         
-        let prviSlobodan = SVI_TERMINI.find(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = prviSlobodan || "";
+        // Prikupi samo slobodne termine
+        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+        odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
         
         prikaziTermine();
     }
 
     function prikaziTermine() {
-        document.getElementById('timeContainer').innerHTML = SVI_TERMINI.map(t => {
-            const isBusy = zauzetiTerminiIzBaze.includes(t);
-            const isSelected = t === odabraniTermin && !isBusy;
+        // FILTRIRAMO I PRIKAZUJEMO ISKLJUČIVO SLOBODNE TERMINE
+        let slobodniTermini = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+        
+        const container = document.getElementById('timeContainer');
+        
+        if (slobodniTermini.length === 0) {
+            container.innerHTML = `<div class="no-slots">⚠️ Nema slobodnih termina za ovaj dan. Izaberite drugi datum.</div>`;
+            return;
+        }
+
+        container.innerHTML = slobodniTermini.map(t => {
+            const isSelected = t === odabraniTermin;
             return `
-                <div class="time-slot ${isBusy ? 'busy' : ''} ${isSelected ? 'selected' : ''}" 
-                     onclick="${isBusy ? '' : `odabraniTermin='${t}';prikaziTermine();`}">
-                    ${t} ${isBusy ? '❌' : ''}
+                <div class="time-slot ${isSelected ? 'selected' : ''}" onclick="odabraniTermin='${t}';prikaziTermine();">
+                    ${t}
                 </div>
             `;
         }).join('');
@@ -280,7 +289,6 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem rezervaciju...";
 
-        // SIGURAN UPIS U GOOGLE SHEETS DOK NE POTVRDI
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
                 await fetch(JEDINSTVENI_BAZA_URL, {
@@ -314,10 +322,15 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Označi termin odmah kao zauzet u interfejsu
+        // Odmah izbaci taj termin iz lokalnog stanja da nestane sa prikaza
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
+        
+        // Postavi sljedeći slobodan termin kao odabran
+        let preostaliSlobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+        odabraniTermin = preostaliSlobodni.length > 0 ? preostaliSlobodni[0] : "";
+        
         prikaziTermine();
 
         window.open(`https://wa.me/${odabranaFirma.brojTelefona}?text=${encoded}`, '_blank');
