@@ -30,7 +30,7 @@
         .company-info h3 { font-size: 1rem; color: #1c1e21; margin-bottom: 2px; }
         .company-info p { font-size: 0.78rem; color: #65676b; }
 
-        /* FORMA ZA ZAKAZIVANJE (SKRIVENA DOK SE NE IZABERE FIRMA) */
+        /* FORMA ZA ZAKAZIVANJE */
         #bookingSection { display: none; border-top: 2px dashed #e4e6eb; padding-top: 15px; margin-top: 15px; }
 
         .service-list { display: flex; flex-direction: column; gap: 8px; }
@@ -71,14 +71,14 @@
             <button class="cat-btn" onclick="filtrirajKategoriju('auto', this)">🚗 Auto & Vulkanizeri</button>
             <button class="cat-btn" onclick="filtrirajKategoriju('ljepota', this)">💈 Saloni & Ljepota</button>
             <button class="cat-btn" onclick="filtrirajKategoriju('zdravlje', this)">🦷 Zdravlje & Medicina</button>
-            <button class="cat-btn" onclick="filtrirajKategoriju('ugostiteljstvo', this)">🍽️ Restorani & Kafici</button>
+            <button class="cat-btn" onclick="filtrirajKategoriju('ugostiteljstvo', this)">🍽️ Restorani</button>
         </div>
 
         <!-- LISTA FIRMI -->
         <div class="section-title">1. Izaberite radnju u gradu</div>
         <div class="company-list" id="companyContainer"></div>
 
-        <!-- DIO ZA ZAKAZIVANJE (Prikazuje se tek kad se izabere firma) -->
+        <!-- DIO ZA ZAKAZIVANJE -->
         <div id="bookingSection">
             <div class="section-title" id="odabranaFirmaNaslov">2. Izaberite uslugu</div>
             <div class="service-list" id="servicesContainer"></div>
@@ -87,7 +87,7 @@
             <div class="date-picker" id="dateContainer"></div>
 
             <div class="section-title">4. Slobodni termini za ovu radnju</div>
-            <div id="loadingStatus" class="loading" style="display:none;">Učitavanje iz baze radnje...</div>
+            <div id="loadingStatus" class="loading" style="display:none;">Učitavanje termina iz baze...</div>
             <div class="time-grid" id="timeContainer"></div>
 
             <div class="section-title">5. Vaši podaci</div>
@@ -107,8 +107,11 @@
 
 <script>
     // =========================================================================
-    // BAZA SVIH FIRMI U GRADU (Ovdje dodaješ firme koje ti plate učešće)
+    // JEDAN URL GOOGLE SKRIPTE ZA SVE FIRME
     // =========================================================================
+    const JEDINSTVENI_BAZA_URL = "OVDJE_ZALIJEPI_TVOJ_GOOGLE_APPS_SCRIPT_URL";
+
+    // BAZA SVIH FIRMI U GRADU
     const FIRME = [
         {
             id: "guma_pro",
@@ -116,8 +119,7 @@
             naziv: "Vulkanizer 'GUMA PRO'",
             opis: "Zamjena guma, balansiranje i krpljenje",
             ikona: "🚗",
-            brojTelefona: "38761255417", // WhatsApp broj Vulkanizera
-            bazaUrl: "https://script.google.com/macros/s/AKfycbyzFfO_y3IgkQ8Dk9HQqHM96pVmu09PkIaBj-hQa_VFgavK4h0hwf8YfkhWrytlVoo7Jg/exec",
+            brojTelefona: "38761111222",
             labelNapomena: "Auto / Registracija *",
             placeholderNapomena: "npr. Golf 7 (A12-K-345)",
             usluge: [
@@ -131,8 +133,7 @@
             naziv: "Frizerski Salon 'BEAUTY'",
             opis: "Muško i žensko šišanje, tretmani kose",
             ikona: "💈",
-            brojTelefona: "38762333444", // WhatsApp broj Frizera
-            bazaUrl: "OVDJE_ZALIJEPI_URL_GOOGLESCRIPT_FRIZERA",
+            brojTelefona: "38762333444",
             labelNapomena: "Napomena / Želje:",
             placeholderNapomena: "npr. Pranje kose i feniranje",
             usluge: [
@@ -146,8 +147,7 @@
             naziv: "Stomatologija 'DENT'",
             opis: "Privatna stomatološka ordinacija",
             ikona: "🦷",
-            brojTelefona: "38763555666", // WhatsApp broj Stomatologa
-            bazaUrl: "OVDJE_ZALIJEPI_URL_GOOGLESCRIPT_STOMATOLOGA",
+            brojTelefona: "38763555666",
             labelNapomena: "Simptomi / Razlog dolaska:",
             placeholderNapomena: "npr. Pregled i plomba",
             usluge: [
@@ -161,8 +161,7 @@
             naziv: "Restoran & Lounge 'LAGO'",
             opis: "Rezervacija stola za ručak i večeru",
             ikona: "🍽️",
-            brojTelefona: "38764777888", // WhatsApp broj Restorana
-            bazaUrl: "OVDJE_ZALIJEPI_URL_GOOGLESCRIPT_RESTORANA",
+            brojTelefona: "38764777888",
             labelNapomena: "Broj osoba & Povod:",
             placeholderNapomena: "npr. 4 osobe, sto pored prozora",
             usluge: [
@@ -236,17 +235,18 @@
         `).join('');
     }
 
+    // ŠALJE SE I ID FIRME DA BAZA ZNA ZA KOGA TRAŽI TERMINE
     async function ucitajBazuIRebuild() {
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
-        if (odabranaFirma.bazaUrl && !odabranaFirma.bazaUrl.includes("OVDJE_ZALIJEPI")) {
+        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                let res = await fetch(`${odabranaFirma.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}`);
+                let res = await fetch(`${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.id)}`);
                 let json = await res.json();
                 zauzetiTerminiIzBaze = json.zauzeti || [];
             } catch (e) {
-                console.log("Greška pri spajanju na bazu radnje.");
+                console.log("Greška pri spajanju na bazu.");
             }
         }
         
@@ -284,11 +284,12 @@
             return;
         }
 
-        // Upis u Google Sheets bazu TE KONKRETNE FIRME
-        if (odabranaFirma.bazaUrl && !odabranaFirma.bazaUrl.includes("OVDJE_ZALIJEPI")) {
-            fetch(odabranaFirma.bazaUrl, {
+        // UPIS U CENTRALNU BAZU SA ID-om FIRME
+        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("https://script.google.com/macros/s/AKfycbyzFfO_y3IgkQ8Dk9HQqHM96pVmu09PkIaBj-hQa_VFgavK4h0hwf8YfkhWrytlVoo7Jg/exec")) {
+            fetch(JEDINSTVENI_BAZA_URL, {
                 method: "POST",
                 body: JSON.stringify({
+                    firma: odabranaFirma.id,
                     datum: odabraniDatum,
                     termin: odabraniTermin,
                     usluga: odabranaUsluga.naziv,
@@ -298,7 +299,7 @@
             });
         }
 
-        // Otvaranje WhatsApp-a sa brojem TE KONKRETNE FIRME
+        // OTVARANJE WHATSAPPA SA BROJEM TE FIRME
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
                        `🏢 *Objekat:* ${odabranaFirma.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
