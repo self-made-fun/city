@@ -102,7 +102,7 @@
 
 <script>
     // ZAMIJENI SA SVOJIM GOOGLE APPS SCRIPT WEB APP URL-om
-    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbwbqWXgtzFNLDnLue-Kce8NJJs5Fe4NTyVdp2nR4NvqSvXuwSYxtbB0j0FWtmp53h9JqA/exec";
+    const JEDINSTVENI_BAZA_URL = "https://script.google.com/macros/s/AKfycbzpd8cVttpBsWdzMluGvj5u6ZRsody2m3CJIUu6f1b_IVuAis4rBea_FVMwooxIJZVK_w/exec";
 
     const FIRME = [
         {
@@ -233,7 +233,8 @@
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.id)}&_cacheBuster=${Date.now()}`;
+                // Šaljemo firma_id za pretragu
+                let queryUrl = `${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma_id=${encodeURIComponent(odabranaFirma.id)}&_t=${Date.now()}`;
                 let res = await fetch(queryUrl);
                 let json = await res.json();
                 
@@ -289,9 +290,10 @@
 
         if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Slanje forme preko URLSearchParams formata koji odmah prolazi
+                // Šaljemo i ID i Naziv firme u POST zahtjevu
                 const params = new URLSearchParams();
-                params.append('firma', odabranaFirma.id);
+                params.append('firma_id', odabranaFirma.id);
+                params.append('firma_naziv', odabranaFirma.naziv);
                 params.append('datum', odabraniDatum);
                 params.append('termin', odabraniTermin);
                 params.append('usluga', odabranaUsluga.naziv);
@@ -323,7 +325,7 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Dodajemo odmah zakazani termin u listu zauzetih na klijentu
+        // Odmah uklanjamo zakazani termin iz liste slobodnih
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin.trim())) {
             zauzetiTerminiIzBaze.push(odabraniTermin.trim());
         }
