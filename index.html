@@ -59,7 +59,7 @@
         <div class="date-picker" id="dateContainer"></div>
 
         <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam najnovije termine...</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam bazu...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -76,7 +76,7 @@
     </div>
 </div>
 
-<!-- Skrivena forma i iframe za pouzdan upis bez CORS blokada -->
+<!-- Skrivena forma za upis kroz Google Apps Script -->
 <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 <form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
     <input type="hidden" name="action" value="upisi">
@@ -96,7 +96,10 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbyLXynTf4Zu9vP9MZDxFhc_PENMca3dpEcBCQFvtcQTtLuLWfqMaGCz72XLqOOUzXateA/exec",
+        // 1. OVDJE STAVI DIREKTAN CSV LINK TVOJE TABELE (ZAMIJENI /edit... SA /export?format=csv)
+        sheetCsvUrl: "https://script.google.com/macros/s/AKfycbw9fwQR8u6aYdxSt3tWZcEcFDr_xmFhBGGFBbQviFW2dR69XGbZZ__nDyn_L06RAdvnrg/exec=csv",
+        // 2. OVDJE STAVI SVOJ GOOGLE APPS SCRIPT URL ZA UPIS
+        bazaUrl: "https://script.google.com/macros/s/AKfycbw9fwQR8u6aYdxSt3tWZcEcFDr_xmFhBGGFBbQviFW2dR69XGbZZ__nDyn_L06RAdvnrg/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -111,31 +114,6 @@
     let odabraniDatum = "Danas";
     let odabraniTermin = "";
     let zauzetiTerminiIzBaze = [];
-
-    // JSONP funkcija za probijanje CORS-a i keširanja na GitHub Pages
-    function sendJsonp(url) {
-        return new Promise((resolve, reject) => {
-            const cbName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-            const script = document.createElement('script');
-            
-            const delimiter = url.includes('?') ? '&' : '?';
-            script.src = url + delimiter + 'callback=' + cbName + '&_nocache=' + Date.now();
-
-            window[cbName] = function(data) {
-                delete window[cbName];
-                if (script.parentNode) script.parentNode.removeChild(script);
-                resolve(data);
-            };
-
-            script.onerror = function() {
-                delete window[cbName];
-                if (script.parentNode) script.parentNode.removeChild(script);
-                reject(new Error("JSONP greška"));
-            };
-
-            document.body.appendChild(script);
-        });
-    }
 
     function inicijalizujPrikaz() {
         document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
@@ -181,28 +159,33 @@
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
-        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
-            try {
-                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}`;
-                let res = await sendJsonp(queryUrl);
-                
-                if (res && res.zauzeti) {
-                    zauzetiTerminiIzBaze = res.zauzeti.map(function(t) {
-                        let clean = String(t).trim();
-                        if (clean.indexOf('0') === 0 && clean.indexOf(':') > 1) clean = clean.substring(1);
-                        return clean;
-                    });
+        try {
+            // Direktoran fetch CSV fajla - NEMA CORS PROBLEMA, NEMA REDIREKCIJA
+            let res = await fetch(FIRMA.sheetCsvUrl + "&t=" + Date.now(), { cache: "no-store" });
+            let csvText = await res.text();
+            
+            let redovi = csvText.split("\n");
+            for (let i = 1; i < redovi.length; i++) {
+                let kolone = redovi[i].split(",");
+                if (kolone.length >= 2) {
+                    let datum = kolone[0].replace(/"/g, "").trim().toLowerCase();
+                    let termin = kolone[1].replace(/"/g, "").trim();
+                    let status = kolone[5] ? kolone[5].replace(/"/g, "").trim().toLowerCase() : "potvrđeno";
+
+                    if (datum === odabraniDatum.toLowerCase() && status !== "otkazano") {
+                        if (termin && !zauzetiTerminiIzBaze.includes(termin)) {
+                            zauzetiTerminiIzBaze.push(termin);
+                        }
+                    }
                 }
-            } catch (e) {
-                console.log("Greška pri čitanju baze:", e);
             }
+        } catch (e) {
+            console.log("Greška pri čitanju CSV-a:", e);
         }
         
         document.getElementById('loadingStatus').style.display = 'none';
         
-        let slobodni = SVI_TERMINI.filter(function(t) {
-            return !zauzetiTerminiIzBaze.includes(t);
-        });
+        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
         odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
         
         prikaziTermine();
@@ -245,7 +228,7 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // Upis kroz skrivenu formu
+        // Upis u bazu preko Apps Script-a
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             const form = document.getElementById('hiddenForm');
             form.action = FIRMA.bazaUrl;
@@ -272,9 +255,7 @@
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
         
-        let slobodni = SVI_TERMINI.filter(function(t) {
-            return !zauzetiTerminiIzBaze.includes(t);
-        });
+        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
         odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
         
         prikaziTermine();
@@ -283,7 +264,7 @@
             btn.disabled = false;
             btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
             window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
-        }, 800);
+        }, 1000);
     }
 
     inicijalizujPrikaz();
