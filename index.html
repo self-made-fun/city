@@ -31,8 +31,6 @@
         .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; }
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
-        
-        /* ZAUZETI TERMINI - CRVENI SA ❌ */
         .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
 
         .input-group { margin-top: 10px; }
@@ -63,7 +61,7 @@
         <div class="date-picker" id="dateContainer"></div>
 
         <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam termine iz baze...</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Povezujem se sa bazom...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -89,7 +87,7 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbzcc-A-5RZevlVh_-EFKOBCdqbjYm7R3xgLWZXppdny2sRsxUIbCVyONSfb2ZWJotTz/exec",
+        bazaUrl: "https://script.google.com/macros/s/AKfycbwj3KpFwGpG8GDy_0RCNAJJQDZXMvuF6lmHAzlbS7nbv2BZXC4U6bF0fdvPhPWGE-_-tQ/exec",
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -105,6 +103,31 @@
     let odabraniDatum = "Danas";
     let odabraniTermin = "";
     let zauzetiTerminiIzBaze = [];
+
+    // GARANTOVAN JSONP POZIV - NE PODLEŽE CORS ZABRANAMA
+    function sendJsonp(url) {
+        return new Promise((resolve, reject) => {
+            const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+            const script = document.createElement('script');
+            
+            const delimiter = url.includes('?') ? '&' : '?';
+            script.src = url + delimiter + 'callback=' + cbName;
+
+            window[cbName] = function(data) {
+                delete window[cbName];
+                document.body.removeChild(script);
+                resolve(data);
+            };
+
+            script.onerror = function() {
+                delete window[cbName];
+                document.body.removeChild(script);
+                reject(new Error("Mrežna greška pri komunikaciji sa bazom."));
+            };
+
+            document.body.appendChild(script);
+        });
+    }
 
     function inicijalizujPrikaz() {
         document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
@@ -146,16 +169,16 @@
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
-        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("ZALIJEPI_TVOJ")) {
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // RAZBIJANJE KEŠA NA GITHUB PAGES SA UNIQUE TIMESTAMP & CACHE: NO-STORE
                 let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_nocache=${Date.now()}`;
-                let res = await fetch(queryUrl, { cache: "no-store" });
-                let json = await res.json();
+                let res = await sendJsonp(queryUrl);
                 
-                zauzetiTerminiIzBaze = (json.zauzeti || []).map(t => String(t).trim());
+                if (res && res.zauzeti) {
+                    zauzetiTerminiIzBaze = res.zauzeti.map(t => String(t).trim());
+                }
             } catch (e) {
-                console.log("Greška pri čitanju baze.");
+                console.error("Greška pri spajanju na bazu:", e);
             }
         }
         
@@ -199,8 +222,8 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // UPIS U GOOGLE SHEETS DOK NE POTVRDI SA NO-CACHE I MODE NO-CORS
-        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("ZALIJEPI_TVOJ")) {
+        // POTVRĐEN UPIS U BAZU PREKO JSONP-a
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
                 let upisUrl = `${FIRMA.bazaUrl}?action=upisi` +
                               `&datum=${encodeURIComponent(odabraniDatum)}` +
@@ -210,9 +233,9 @@
                               `&napomena=${encodeURIComponent(napomena)}` +
                               `&_nocache=${Date.now()}`;
 
-                await fetch(upisUrl, { mode: 'no-cors' });
+                await sendJsonp(upisUrl);
             } catch (e) {
-                console.log("Upis uspjeno poslat.");
+                console.error("Greška pri upisu u bazu:", e);
             }
         }
 
@@ -229,6 +252,7 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
+        // Označi odmah lokalno
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
