@@ -9,7 +9,6 @@
         body { background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; padding: 15px; }
         .app-card { background: #ffffff; width: 100%; max-width: 480px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; padding-bottom: 20px; }
         
-        /* ZAGLAVLJE PORTALA */
         .header { background: linear-gradient(135deg, #075e54, #128c7e); color: white; padding: 25px 20px; text-align: center; }
         .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
         .header p { font-size: 0.85rem; opacity: 0.9; }
@@ -17,12 +16,10 @@
         .content { padding: 20px; }
         .section-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #65676b; margin-bottom: 10px; margin-top: 15px; }
 
-        /* FILTER KATEGORIJA */
         .category-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; }
         .cat-btn { padding: 8px 14px; border: 1.5px solid #128c7e; border-radius: 20px; background: white; color: #075e54; font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
         .cat-btn.selected { background: #128c7e; color: white; }
 
-        /* LISTA FIRMI / OBJEKATA */
         .company-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
         .company-card { border: 2px solid #e4e6eb; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s; background: #fff; }
         .company-card.selected { border-color: #128c7e; background-color: #e8f5e9; }
@@ -30,7 +27,6 @@
         .company-info h3 { font-size: 1rem; color: #1c1e21; margin-bottom: 2px; }
         .company-info p { font-size: 0.78rem; color: #65676b; }
 
-        /* FORMA ZA ZAKAZIVANJE */
         #bookingSection { display: none; border-top: 2px dashed #e4e6eb; padding-top: 15px; margin-top: 15px; }
 
         .service-list { display: flex; flex-direction: column; gap: 8px; }
@@ -65,7 +61,6 @@
     </div>
 
     <div class="content">
-        <!-- FILTER KATEGORIJA -->
         <div class="category-scroll">
             <button class="cat-btn selected" onclick="filtrirajKategoriju('sve', this)">Sve radnje</button>
             <button class="cat-btn" onclick="filtrirajKategoriju('auto', this)">🚗 Auto & Vulkanizeri</button>
@@ -74,11 +69,9 @@
             <button class="cat-btn" onclick="filtrirajKategoriju('ugostiteljstvo', this)">🍽️ Restorani</button>
         </div>
 
-        <!-- LISTA FIRMI -->
         <div class="section-title">1. Izaberite radnju u gradu</div>
         <div class="company-list" id="companyContainer"></div>
 
-        <!-- DIO ZA ZAKAZIVANJE -->
         <div id="bookingSection">
             <div class="section-title" id="odabranaFirmaNaslov">2. Izaberite uslugu</div>
             <div class="service-list" id="servicesContainer"></div>
@@ -106,12 +99,9 @@
 </div>
 
 <script>
-    // =========================================================================
-    // JEDAN URL GOOGLE SKRIPTE ZA SVE FIRME
-    // =========================================================================
+    // ZAMIJENI SA SVOJIM WEB APP URL-om
     const JEDINSTVENI_BAZA_URL = "OVDJE_ZALIJEPI_TVOJ_GOOGLE_APPS_SCRIPT_URL";
 
-    // BAZA SVIH FIRMI U GRADU
     const FIRME = [
         {
             id: "guma_pro",
@@ -119,7 +109,7 @@
             naziv: "Vulkanizer 'GUMA PRO'",
             opis: "Zamjena guma, balansiranje i krpljenje",
             ikona: "🚗",
-            brojTelefona: "38761255417",
+            brojTelefona: "38761111222",
             labelNapomena: "Auto / Registracija *",
             placeholderNapomena: "npr. Golf 7 (A12-K-345)",
             usluge: [
@@ -235,12 +225,11 @@
         `).join('');
     }
 
-    // ŠALJE SE I ID FIRME DA BAZA ZNA ZA KOGA TRAŽI TERMINE
     async function ucitajBazuIRebuild() {
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
-        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
+        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("https://script.google.com/macros/s/AKfycbzmNgoxQSdUfZYqyI1ggWxw5t6qe_p5fuBACWQ0qQ5ZMr4Sb9x-Xqv4q1_xYDkFc__xAQ/exec")) {
             try {
                 let res = await fetch(`${JEDINSTVENI_BAZA_URL}?datum=${encodeURIComponent(odabraniDatum)}&firma=${encodeURIComponent(odabranaFirma.id)}`);
                 let json = await res.json();
@@ -284,12 +273,14 @@
             return;
         }
 
-        // UPIS U CENTRALNU BAZU SA ID-om FIRME
-        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("https://script.google.com/macros/s/AKfycbyzFfO_y3IgkQ8Dk9HQqHM96pVmu09PkIaBj-hQa_VFgavK4h0hwf8YfkhWrytlVoo7Jg/exec")) {
+        // SLANJE PODATAKA U KOREKTNOM SVOJSTVU U GOOGLE SHEETS
+        if (JEDINSTVENI_BAZA_URL && !JEDINSTVENI_BAZA_URL.includes("OVDJE_ZALIJEPI")) {
             fetch(JEDINSTVENI_BAZA_URL, {
                 method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    firma: odabranaFirma.id,
+                    firma: odabranaFirma.naziv, // Šaljemo PUNI NAZIV (npr. Vulkanizer 'GUMA PRO')
                     datum: odabraniDatum,
                     termin: odabraniTermin,
                     usluga: odabranaUsluga.naziv,
@@ -299,7 +290,7 @@
             });
         }
 
-        // OTVARANJE WHATSAPPA SA BROJEM TE FIRME
+        // OTVARANJE WHATSAPPA
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
                        `🏢 *Objekat:* ${odabranaFirma.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
@@ -312,7 +303,6 @@
         window.open(`https://wa.me/${odabranaFirma.brojTelefona}?text=${encoded}`, '_blank');
     }
 
-    // Inicijalno učitavanje
     prikaziFirme();
 </script>
 
