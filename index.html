@@ -33,8 +33,6 @@
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
         .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
 
-        .no-slots { grid-column: span 3; text-align: center; color: #d32f2f; font-weight: 600; padding: 15px; background: #ffebe9; border-radius: 8px; font-size: 0.85rem; }
-
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
         .input-group input { width: 100%; padding: 11px; border: 1.5px solid #cccccc; border-radius: 8px; outline: none; }
@@ -60,8 +58,8 @@
         <div class="section-title">2. Izaberite dan</div>
         <div class="date-picker" id="dateContainer"></div>
 
-        <div class="section-title">3. Slobodni termini</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Provjeravam bazu termina...</div>
+        <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam termine iz baze...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -116,20 +114,31 @@
 
     function prikaziUsluge() {
         document.getElementById('servicesContainer').innerHTML = FIRMA.usluge.map(u => `
-            <div class="service-item ${u.id === odabranaUsluga.id ? 'selected' : ''}" onclick="odabranaUsluga=FIRMA.usluge.find(x=>x.id===${u.id});prikaziUsluge();">
+            <div class="service-item ${u.id === odabranaUsluga.id ? 'selected' : ''}" onclick="odaberiUslugu(${u.id})">
                 <span class="service-name">${u.naziv}</span>
                 <span class="service-price">${u.cijena}</span>
             </div>
         `).join('');
     }
 
+    function odaberiUslugu(id) {
+        odabranaUsluga = FIRMA.usluge.find(x => x.id === id);
+        prikaziUsluge();
+    }
+
     function prikaziDatume() {
         const datumi = ["Danas", "Sutra", "Prekosutra"];
         document.getElementById('dateContainer').innerHTML = datumi.map(d => `
-            <div class="date-btn ${d === odabraniDatum ? 'selected' : ''}" onclick="odabraniDatum='${d}';prikaziDatume();ucitajBazuIRebuild();">
+            <div class="date-btn ${d === odabraniDatum ? 'selected' : ''}" onclick="odaberiDatum('${d}')">
                 <div>${d}</div>
             </div>
         `).join('');
+    }
+
+    function odaberiDatum(d) {
+        odabraniDatum = d;
+        prikaziDatume();
+        ucitajBazuIRebuild();
     }
 
     async function ucitajBazuIRebuild() {
@@ -138,12 +147,12 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_nocache=${Date.now()}`;
+                let queryUrl = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
                 let res = await fetch(queryUrl, { redirect: 'follow', cache: 'no-store' });
                 let json = await res.json();
                 
                 if (json && json.zauzeti) {
-                    zauzetiTerminiIzBaze = json.zauzeti.map(t => String(t).trim());
+                    zauzetiTerminiIzBaze = json.zauzeti.map(function(t) { return String(t).trim(); });
                 }
             } catch (e) {
                 console.log("Greška pri čitanju baze:", e);
@@ -152,29 +161,32 @@
         
         document.getElementById('loadingStatus').style.display = 'none';
         
+        let slobodni = SVI_TERMINI.filter(function(t) {
+            return !zauzetiTerminiIzBaze.includes(t);
+        });
+        odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
+        
+        prikaziTermine();
+    }
+
+    function odaberiTermin(t) {
+        odabraniTermin = t;
         prikaziTermine();
     }
 
     function prikaziTermine() {
         const container = document.getElementById('timeContainer');
-        
-        // Prikazujemo sve termine, ali zauzeti dobijaju klasu 'busy' i ne mogu se kliknuti
+
         container.innerHTML = SVI_TERMINI.map(t => {
             const isBusy = zauzetiTerminiIzBaze.includes(t);
             const isSelected = t === odabraniTermin && !isBusy;
-            return `
-                <div class="time-slot ${isBusy ? 'busy' : ''} ${isSelected ? 'selected' : ''}" 
-                     onclick="${isBusy ? '' : `odabraniTermin='${t}';prikaziTermine();`}">
-                    ${t} ${isBusy ? '❌' : ''}
-                </div>
-            `;
+            
+            if (isBusy) {
+                return `<div class="time-slot busy">${t} ❌</div>`;
+            } else {
+                return `<div class="time-slot ${isSelected ? 'selected' : ''}" onclick="odaberiTermin('${t}')">${t}</div>`;
+            }
         }).join('');
-
-        // Ako je trenutno odabrani termin postao zauzet, prebaci na prvi slobodan
-        if (zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
-            odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
-        }
     }
 
     async function rezervisiWA() {
@@ -187,14 +199,13 @@
             return;
         }
         if(!odabraniTermin || zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            alert("Ovaj termin je već zauzet. Izaberite slobodan.");
+            alert("Ovaj termin je zauzet. Izaberite drugi.");
             return;
         }
 
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // UPIS U GOOGLE SHEETS
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
                 let upisUrl = `${FIRMA.bazaUrl}?action=upisi` +
@@ -203,7 +214,7 @@
                               `&usluga=${encodeURIComponent(odabranaUsluga.naziv)}` +
                               `&ime=${encodeURIComponent(ime)}` +
                               `&napomena=${encodeURIComponent(napomena)}` +
-                              `&_nocache=${Date.now()}`;
+                              `&_t=${Date.now()}`;
 
                 await fetch(upisUrl, { redirect: 'follow', cache: 'no-store' });
             } catch (e) {
@@ -224,10 +235,14 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Odmah dodaj u lokalnu listu zauzetih da se odmah vidi ❌
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
+        
+        let slobodni = SVI_TERMINI.filter(function(t) {
+            return !zauzetiTerminiIzBaze.includes(t);
+        });
+        odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
         
         prikaziTermine();
 
