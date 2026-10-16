@@ -33,7 +33,7 @@
   <div class="tab" onclick="switchTab('porudzbina', this)">📦 Porudžbina</div>
 </div>
 
-<!-- ================= FORMA: TERMIN ================= -->
+<!-- FORMA: TERMIN -->
 <div class="card" id="formaTermin">
   <h2>Zakaži termin</h2>
 
@@ -42,9 +42,6 @@
 
   <label>Slobodni termini</label>
   <div id="slots" class="slots"><em style="color:#888;font-size:14px;">Izaberi datum...</em></div>
-
-  <label>Usluga</label>
-  <input type="text" id="t_service" placeholder="npr. Šišanje">
 
   <label>Ime i prezime</label>
   <input type="text" id="t_name" placeholder="Marko Marković">
@@ -59,7 +56,7 @@
   <div class="msg" id="msgTermin"></div>
 </div>
 
-<!-- ================= FORMA: PORUDZBINA ================= -->
+<!-- FORMA: PORUDZBINA -->
 <div class="card hidden" id="formaPorudzbina">
   <h2>Nova porudžbina</h2>
 
@@ -84,21 +81,18 @@
 
 <script>
   // ============================================================
-  // POVEZIVANJE SA APPS SCRIPT-OM
+  // ⚙️ OVDE UBACI SVOJ WEB APP URL (dobiješ ga posle Deploy-a)
   // ============================================================
-  const API = 'https://script.google.com/macros/s/AKfycbxWIP4cY7yqBW2wrU5hpDIaHZ9W5hOqA0PuLE_xJCgsli6qGVbJnq4Wc16jHrQcae7BTQ/exec'; // ostavi prazno - koristi isti URL kao i forma
-
-  function apiUrl(params) {
-    const base = API || window.location.href.split('?')[0];
-    const qs = new URLSearchParams(params).toString();
-    return base + '?' + qs;
-  }
+  const API_URL = 'https://script.google.com/macros/s/AKfycbw16I58pOK_bi-b5vjyD4MsjZEuL8jiqi8wdrVFco9H6OJDFl92Xp06OK1xJKt0SRS_wA/exec';
+  // ============================================================
 
   let selectedSlot = null;
 
-  // ============================================================
-  // TABOVI
-  // ============================================================
+  function apiUrl(params) {
+    const qs = new URLSearchParams(params).toString();
+    return API_URL + '?' + qs;
+  }
+
   function switchTab(name, el) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
@@ -106,9 +100,6 @@
     document.getElementById('formaPorudzbina').classList.toggle('hidden', name !== 'porudzbina');
   }
 
-  // ============================================================
-  // UCITAVANJE SLOBODNIH TERMINA
-  // ============================================================
   async function loadSlots() {
     const date = document.getElementById('t_date').value;
     const el = document.getElementById('slots');
@@ -139,9 +130,6 @@
     el.classList.add('selected');
   }
 
-  // ============================================================
-  // ZAKAZIVANJE
-  // ============================================================
   async function book() {
     const msg = document.getElementById('msgTermin');
     msg.className = 'msg';
@@ -177,9 +165,6 @@
     }
   }
 
-  // ============================================================
-  // PORUDZBINA
-  // ============================================================
   async function order() {
     const msg = document.getElementById('msgPorudzbina');
     msg.className = 'msg';
