@@ -79,22 +79,12 @@
     </div>
 </div>
 
-<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-<form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
-    <input type="hidden" name="action" value="upisi">
-    <input type="hidden" name="datum" id="formDatum">
-    <input type="hidden" name="termin" id="formTermin">
-    <input type="hidden" name="usluga" id="formUsluga">
-    <input type="hidden" name="ime" id="formIme">
-    <input type="hidden" name="napomena" id="formNapomena">
-</form>
-
 <script>
     const FIRMA = {
         naziv: "Frizerski Salon 'BEAUTY'",
         opis: "Brzo i jednostavno zakazivanje termina",
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbzLvpANlO9l_4ozIiUnl2lFmpvmtNkqhM8nSNkAMQyJJKtuCdpOA4S8ViykI4o5BdiLpw/exec", // <--- OVDJE STAVI SVOJ WEB APP URL
+        bazaUrl: "https://script.google.com/macros/s/AKfycbzrmCUCBuKnod4EnARgatA7JgFs3PmCLJ2SVc7D93oyylH42wpj56StMnRrSrxsHbh2BA/exec", // <--- OVDJE STAVI SVOJ WEB APP URL
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -149,7 +139,6 @@
         ucitajBazu();
     }
 
-    // Ekstremno čišćenje stringa da uvijek vrati čist format (npr. "9:00")
     function cistiFormat(t) {
         if (!t) return "";
         let s = String(t).replace(/[^\d:]/g, "").trim();
@@ -194,7 +183,7 @@
                 `</div>`;
         }
 
-        // GLAVNA ISPRAVKA: Filtriramo tako što upoređujemo isključivo očišćene formate
+        // IZBACIVANJE ZAUZETIH IZ DROPDOWNA
         let slobodni = SVI_MOGUCI_TERMINI.filter(slot => {
             let cistiSlot = cistiFormat(slot);
             return !zauzetiTerminiIzBaze.includes(cistiSlot);
@@ -210,7 +199,7 @@
         }
     }
 
-    function rezervisiWA() {
+    async function rezervisiWA() {
         const termin = document.getElementById('klijentTermin').value;
         const ime = document.getElementById('klijentIme').value.trim();
         const napomena = document.getElementById('klijentNapomena').value.trim();
@@ -226,47 +215,51 @@
         }
 
         btn.disabled = true;
-        btn.innerText = "⏳ Upisujem u bazu...";
+        btn.innerText = "⏳ Provjera i upis u bazu...";
 
-        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
-            const form = document.getElementById('hiddenForm');
-            form.action = FIRMA.bazaUrl;
-            document.getElementById('formDatum').value = odabraniDatum;
-            document.getElementById('formTermin').value = cistiFormat(termin);
-            document.getElementById('formUsluga').value = odabranaUsluga.naziv;
-            document.getElementById('formIme').value = ime;
-            document.getElementById('formNapomena').value = napomena;
-            
-            form.submit();
-        }
+        try {
+            const payload = {
+                datum: odabraniDatum,
+                termin: cistiFormat(termin),
+                usluga: odabranaUsluga.naziv,
+                ime: ime,
+                napomena: napomena
+            };
 
-        const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
-                       `🏢 *Objekat:* ${FIRMA.naziv}\n` +
-                       `📅 *Dan:* ${odabraniDatum}\n` +
-                       `⏰ *Vrijeme:* ${termin}h\n` +
-                       `🛠️ *Usluga:* ${odabranaUsluga.naziv} (${odabranaUsluga.cijena})\n\n` +
-                       `👤 *Klijent:* ${ime}\n` +
-                       `📝 *Napomena:* ${napomena}`;
-                       
-        const encoded = encodeURIComponent(poruka);
-        
-        setTimeout(() => {
+            // Šaljemo POST zahtjev i čekamo odgovor servera
+            const res = await fetch(FIRMA.bazaUrl, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                // Uspješno upisano u bazu! Sad otvaramo WhatsApp
+                const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
+                               `🏢 *Objekat:* ${FIRMA.naziv}\n` +
+                               `📅 *Dan:* ${odabraniDatum}\n` +
+                               `⏰ *Vrijeme:* ${termin}h\n` +
+                               `🛠️ *Usluga:* ${odabranaUsluga.naziv} (${odabranaUsluga.cijena})\n\n` +
+                               `👤 *Klijent:* ${ime}\n` +
+                               `📝 *Napomena:* ${napomena}`;
+                               
+                window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encodeURIComponent(poruka)}`, '_blank');
+                
+                document.getElementById('klijentIme').value = "";
+                document.getElementById('klijentNapomena').value = "";
+                ucitajBazu(); // Odmah osvježi da se termin zaključa
+            } else {
+                // Server je javio grešku (npr. neko drugi ga uzeo sekundu ranije)
+                alert("Greška: " + result.message);
+                ucitajBazu(); // Osvježi stanje
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Došlo je do greške u komunikaciji sa bazom.");
+        } finally {
             btn.disabled = false;
             btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
-
-            let cistTermin = cistiFormat(termin);
-            if (!zauzetiTerminiIzBaze.includes(cistTermin)) {
-                zauzetiTerminiIzBaze.push(cistTermin);
-            }
-            osvjeziInterfejs();
-
-            window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
-            
-            document.getElementById('klijentIme').value = "";
-            document.getElementById('klijentNapomena').value = "";
-            
-            setTimeout(ucitajBazu, 1500);
-        }, 1000);
+        }
     }
 
     inicijalizujPrikaz();
