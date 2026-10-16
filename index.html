@@ -4,119 +4,683 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Online Zakazivanje Termina</title>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .card { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
-        h2 { text-align: center; color: #333; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; box-sizing: border-box; }
-        button { width: 100%; background: #25d366; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; transition: background 0.3s; margin-top: 10px; }
-        button:hover { background: #1ebe5d; }
-        #loading { display: none; text-align: center; color: #666; margin-top: 10px; }
-        #response-msg { display: none; margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
+        :root {
+            --wa-teal-dark: #075e54;
+            --wa-teal: #128c7e;
+            --wa-light-teal: #25d366;
+            --wa-chat-bg: #efeae2;
+            --wa-green-accent: #00a884;
+            --wa-green-hover: #008f70;
+            --card-bg: rgba(255, 255, 255, 0.92);
+            --card-border: rgba(255, 255, 255, 0.6);
+            --text-primary: #111b21;
+            --text-secondary: #667781;
+            --danger: #ea4335;
+            --danger-bg: #fce8e6;
+            --success-bg: #e6f4ea;
+            --shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+            --radius-lg: 20px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #054840 0%, #128c7e 50%, #25d366 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 12px;
+            color: var(--text-primary);
+        }
+
+        /* Glassmorphism Outer Wrapper */
+        .app-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            width: 100%;
+            max-width: 500px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--card-border);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Header Styling */
+        .header {
+            background: linear-gradient(135deg, var(--wa-teal-dark), var(--wa-teal));
+            color: white;
+            padding: 28px 24px 22px 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: var(--card-bg);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .logo-box {
+            width: 76px;
+            height: 76px;
+            background: rgba(255, 255, 255, 0.18);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            margin: 0 auto 12px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        .logo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .header h1 {
+            font-size: 1.45rem;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 0.88rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        /* Content Container */
+        .content {
+            padding: 16px 22px 26px 22px;
+        }
+
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin: 20px 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-title i {
+            color: var(--wa-teal);
+        }
+
+        /* Service List Cards */
+        .service-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .service-item {
+            border: 2px solid #e9edef;
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition);
+            background: #ffffff;
+        }
+
+        .service-item:hover {
+            border-color: var(--wa-teal);
+            transform: translateY(-1px);
+        }
+
+        .service-item.selected {
+            border-color: var(--wa-green-accent);
+            background-color: #f0faf6;
+            box-shadow: 0 4px 12px rgba(0, 168, 132, 0.08);
+        }
+
+        .service-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .service-radio {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid #b4c1c7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .service-item.selected .service-radio {
+            border-color: var(--wa-green-accent);
+            background-color: var(--wa-green-accent);
+        }
+
+        .service-radio::after {
+            content: '';
+            width: 7px;
+            height: 7px;
+            background: white;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .service-item.selected .service-radio::after {
+            display: block;
+        }
+
+        .service-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+
+        .service-price {
+            font-weight: 800;
+            color: var(--wa-teal-dark);
+            font-size: 0.95rem;
+            background: #e8f5e9;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        /* Date Picker Buttons */
+        .date-picker {
+            display: flex;
+            gap: 8px;
+        }
+
+        .date-btn {
+            flex: 1;
+            padding: 12px 8px;
+            border: 2px solid #e9edef;
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            background: #ffffff;
+            transition: var(--transition);
+        }
+
+        .date-btn:hover {
+            border-color: var(--wa-teal);
+        }
+
+        .date-btn.selected {
+            border-color: var(--wa-teal);
+            background-color: var(--wa-teal);
+            color: white;
+            box-shadow: 0 4px 12px rgba(18, 140, 126, 0.25);
+        }
+
+        .date-btn .day-label {
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+
+        /* Inputs & Select */
+        .input-group {
+            margin-top: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #d1d7dd;
+            border-radius: var(--radius-md);
+            outline: none;
+            background: #ffffff;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            transition: var(--transition);
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: var(--wa-green-accent);
+            box-shadow: 0 0 0 3px rgba(0, 168, 132, 0.15);
+        }
+
+        /* Busy Slots Indicator */
+        .busy-list {
+            background: var(--danger-bg);
+            border: 1px solid #f5c6cb;
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            font-size: 0.85rem;
+            color: #721c24;
+        }
+
+        .busy-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .busy-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .busy-tag {
+            background: #ffffff;
+            border: 1px solid #f5c6cb;
+            color: var(--danger);
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        /* Submit Button */
+        .btn-whatsapp {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            color: white;
+            background: linear-gradient(135deg, #25d366, #00a884);
+            box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35);
+            margin-top: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: var(--transition);
+        }
+
+        .btn-whatsapp:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px rgba(37, 211, 102, 0.45);
+        }
+
+        .btn-whatsapp:active {
+            transform: translateY(0);
+        }
+
+        .btn-whatsapp:disabled {
+            background: #a5d6a7;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Status & Loading Indicator */
+        .loading {
+            text-align: center;
+            color: var(--wa-teal-dark);
+            font-weight: 700;
+            font-size: 0.88rem;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(18, 140, 126, 0.2);
+            border-top-color: var(--wa-teal);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Config Banner when URL is missing */
+        .config-alert {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffe8a1;
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            margin-bottom: 12px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Zakazivanje Termina</h2>
-    <form id="bookingForm">
-        <div class="form-group">
-            <label for="ime">Ime i prezime:</label>
-            <input type="text" id="ime" name="ime" required placeholder="Npr. Amar Ramić">
+<div class="app-card">
+    <!-- Config Warning Banner (Shown if Apps Script URL is missing) -->
+    <div class="config-alert" id="configAlert">
+        <i class="fa-solid fa-triangle-exclamation"></i> <strong>Napomena:</strong> Zalijepite Vaš Google Apps Script URL u polje <code>bazaUrl</code> u JavaScriptu!
+    </div>
+
+    <!-- Header Section -->
+    <div class="header">
+        <div class="logo-box" id="logoBox">
+            <i class="fa-solid fa-tooth"></i>
         </div>
-        <div class="form-group">
-            <label for="telefon">Broj mobitela (WhatsApp):</label>
-            <input type="tel" id="telefon" name="telefon" required placeholder="Npr. +38761255417">
+        <h1 id="firmaNaziv">Stomatološka Ordinacija</h1>
+        <p id="firmaOpis">Brzo i jednostavno zakazivanje termina</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+        <!-- 1. Service Selection -->
+        <div class="section-title">
+            <i class="fa-solid fa-list-check"></i> 1. Odaberite uslugu
         </div>
-        <div class="form-group">
-            <label for="usluga">Odaberite uslugu:</label>
-            <select id="usluga" name="usluga" required>
-                <option value="">-- Izaberi uslugu --</option>
-                <option value="Usluga 1">Osnovna usluga / Pregled</option>
-                <option value="Usluga 2">Standardna obrada</option>
-                <option value="Usluga 3">Napredni paket</option>
+        <div class="service-list" id="servicesContainer"></div>
+
+        <!-- 2. Date Selection -->
+        <div class="section-title">
+            <i class="fa-solid fa-calendar-days"></i> 2. Odaberite dan
+        </div>
+        <div class="date-picker" id="dateContainer"></div>
+
+        <!-- 3. Busy Slots Display -->
+        <div class="section-title">
+            <i class="fa-solid fa-clock-rotate-left"></i> 3. Pregled zauzetih termina
+        </div>
+        <div id="loadingStatus" class="loading" style="display: none;">
+            <div class="spinner"></div> Provjera stanja u bazi...
+        </div>
+        <div id="busyContainer"></div>
+
+        <!-- 4. Client Info & Time Selection -->
+        <div class="section-title">
+            <i class="fa-solid fa-user-pen"></i> 4. Podaci i slobodno vrijeme
+        </div>
+        
+        <div class="input-group">
+            <label for="klijentTermin">Slobodan termin *</label>
+            <select id="klijentTermin">
+                <option value="">-- Prvo izaberite dan --</option>
             </select>
         </div>
-        <div class="form-group">
-            <label for="datum">Datum:</label>
-            <input type="date" id="datum" name="datum" required>
+
+        <div class="input-group">
+            <label for="klijentIme">Ime i Prezime *</label>
+            <input type="text" id="klijentIme" placeholder="Unesite vaše ime i prezime">
         </div>
-        <div class="form-group">
-            <label for="vrijeme">Vrijeme:</label>
-            <input type="time" id="vrijeme" name="vrijeme" required>
+
+        <div class="input-group">
+            <label id="napomenaLabel" for="klijentNapomena">Napomena / Razlog posjete *</label>
+            <input type="text" id="klijentNapomena" placeholder="Unesite kratak opis">
         </div>
-        <div class="form-group">
-            <label for="napomena">Napomena (opcionalno):</label>
-            <textarea id="napomena" name="napomena" rows="3" placeholder="Dodatni zahtjevi..."></textarea>
-        </div>
-        
-        <button type="submit" id="submitBtn">Potvrdi rezervaciju</button>
-        <div id="loading">Slanje podataka u bazu... Pričekajte.</div>
-    </form>
-    
-    <div id="response-msg"></div>
+
+        <!-- Submit Button -->
+        <button class="btn-whatsapp" id="btnSubmit" onclick="rezervisiWA()">
+            <i class="fa-brands fa-whatsapp" style="font-size: 1.25rem;"></i> POTVRDI I ZAKAŽI PREKO WHATSAPPA
+        </button>
+    </div>
 </div>
 
+<!-- Hidden Form & Iframe (Bypasses CORS Issues for background Google Sheets logging) -->
+<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+<form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
+    <input type="hidden" name="action" value="upisi">
+    <input type="hidden" name="datum" id="formDatum">
+    <input type="hidden" name="termin" id="formTermin">
+    <input type="hidden" name="usluga" id="formUsluga">
+    <input type="hidden" name="ime" id="formIme">
+    <input type="hidden" name="napomena" id="formNapomena">
+</form>
+
 <script>
-    // OVDJE ZALIJEPI SVOJ GOOGLE APPS SCRIPT WEB APP URL
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsUyAMuVFjvtcm2TFFCBH2jL9CBKeFExashUXiQK8Bm2qUU1UVK8e8Lrv4hp-GzwEbnw/exec";
-
-    document.getElementById('bookingForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+    // ==========================================
+    // KONFIGURACIJA VAŠEG BIZNISA / FIRME
+    // ==========================================
+    const FIRMA = {
+        naziv: "Stomatologija 'SMILE'",
+        opis: "Profesionalne stomatološke usluge",
+        logoUrl: "", // Ovdje možete staviti URL slike logotipa (npr. "https://domain.com/logo.png")
+        brojTelefona: "38761255417", // Vaš WhatsApp broj telefona (sa pozivnim brojem, bez + ili 00)
         
-        const submitBtn = document.getElementById('submitBtn');
-        const loading = document.getElementById('loading');
-        const msgBox = document.getElementById('response-msg');
+        // ZALIJEPI SVOJ GOOGLE APPS SCRIPT WEB APP URL OVDJE:
+        bazaUrl: "https://script.google.com/macros/s/AKfycbxOIr5GwJllW48a7BegxKrFP1rLfey1K99E5idyT4N-EI2PfibdM7Eeq_c_AC7StMEASw/exec", 
         
-        submitBtn.style.display = 'none';
-        loading.style.display = 'block';
-        msgBox.style.display = 'none';
+        labelNapomena: "Napomena / Razlog posjete *",
+        placeholderNapomena: "npr. Redovan pregled ili popravak zuba",
+        usluge: [
+            { id: 1, naziv: "Stomatološki Pregled", cijena: "20 KM" },
+            { id: 2, naziv: "Čišćenje Zubnog Kamenca", cijena: "40 KM" },
+            { id: 3, naziv: "Popravak Zuba / Plomba", cijena: "50 KM" }
+        ]
+    };
 
-        const formData = {
-            ime: document.getElementById('ime').value,
-            telefon: document.getElementById('telefon').value,
-            usluga: document.getElementById('usluga').value,
-            datum: document.getElementById('datum').value,
-            vrijeme: document.getElementById('vrijeme').value,
-            napomena: document.getElementById('napomena').value
-        };
+    // Mogući radni termini tokom dana
+    const SVI_MOGUCI_TERMINI = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // Nužno za Google Apps Script Web App
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(() => {
-            // Pošto no-cors vraća prazan odgovor, pretpostavljamo uspjeh i obrađujemo lokalno
-            loading.style.display = 'none';
-            msgBox.className = 'response-msg success';
-            msgBox.innerHTML = 'Uspješno ste zakazali termin! Podaci su spremljeni.';
-            msgBox.style.display = 'block';
+    // Aplikativna stanja
+    let odabranaUsluga = FIRMA.usluge[0];
+    let odabraniDatum = "Danas";
+    let zauzetiTerminiIzBaze = [];
+
+    // Inicijalizacija prikaza po učitavanju stranice
+    function inicijalizujPrikaz() {
+        document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
+        document.getElementById('firmaOpis').innerText = FIRMA.opis;
+        document.getElementById('napomenaLabel').innerText = FIRMA.labelNapomena;
+        document.getElementById('klijentNapomena').placeholder = FIRMA.placeholderNapomena;
+
+        if (FIRMA.logoUrl && FIRMA.logoUrl.trim() !== "") {
+            document.getElementById('logoBox').innerHTML = `<img src="${FIRMA.logoUrl}" alt="Logo">`;
+        }
+
+        if (!FIRMA.bazaUrl || FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
+            document.getElementById('configAlert').style.display = 'block';
+        }
+
+        prikaziUsluge();
+        prikaziDatume();
+        ucitajBazu();
+    }
+
+    // Prikaz liste usluga
+    function prikaziUsluge() {
+        document.getElementById('servicesContainer').innerHTML = FIRMA.usluge.map(u => `
+            <div class="service-item ${u.id === odabranaUsluga.id ? 'selected' : ''}" onclick="odaberiUslugu(${u.id})">
+                <div class="service-left">
+                    <div class="service-radio"></div>
+                    <span class="service-name">${u.naziv}</span>
+                </div>
+                <span class="service-price">${u.cijena}</span>
+            </div>
+        `).join('');
+    }
+
+    function odaberiUslugu(id) {
+        odabranaUsluga = FIRMA.usluge.find(x => x.id === id);
+        prikaziUsluge();
+    }
+
+    // Prikaz opcija za izbor datuma (Danas, Sutra, Prekosutra)
+    function prikaziDatume() {
+        const datumi = ["Danas", "Sutra", "Prekosutra"];
+        document.getElementById('dateContainer').innerHTML = datumi.map(d => `
+            <div class="date-btn ${d === odabraniDatum ? 'selected' : ''}" onclick="odaberiDatum('${d}')">
+                <div class="day-label">${d}</div>
+            </div>
+        `).join('');
+    }
+
+    function odaberiDatum(d) {
+        odabraniDatum = d;
+        prikaziDatume();
+        ucitajBazu();
+    }
+
+    // Provjera zauzetih termina preko Google Apps Script API-ja
+    async function ucitajBazu() {
+        const loadingElem = document.getElementById('loadingStatus');
+        const busyContainer = document.getElementById('busyContainer');
+        
+        loadingElem.style.display = 'flex';
+        busyContainer.innerHTML = '';
+        zauzetiTerminiIzBaze = [];
+
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
+            try {
+                let url = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
+                let res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+                let json = await res.json();
+                
+                if (json && json.zauzeti) {
+                    zauzetiTerminiIzBaze = json.zauzeti.map(t => String(t).trim());
+                }
+            } catch (e) {
+                console.warn("Upozorenje pri čitanju baze:", e);
+                busyContainer.innerHTML = `<div style="color:var(--danger); font-size:0.85rem; padding: 6px 0;">Nemoguće dohvatiti stanja iz baze.</div>`;
+            }
+        }
+        
+        loadingElem.style.display = 'none';
+        osvjeziInterfejs();
+    }
+
+    // Osvježavanje dropdown-a i prikaz zauzetih termina
+    function osvjeziInterfejs() {
+        const busyContainer = document.getElementById('busyContainer');
+        
+        if (zauzetiTerminiIzBaze.length === 0) {
+            busyContainer.innerHTML = `
+                <div style="font-size:0.85rem; color:#155724; background:var(--success-bg); padding:10px 12px; border-radius:var(--radius-md); text-align:center; font-weight:700;">
+                    <i class="fa-solid fa-circle-check"></i> Svi termini za ovaj dan su slobodni!
+                </div>`;
+        } else {
+            busyContainer.innerHTML = `
+                <div class="busy-list">
+                    <div class="busy-title"><i class="fa-solid fa-circle-xmark"></i> Zauzeti termini:</div>
+                    <div class="busy-tags">
+                        ${zauzetiTerminiIzBaze.map(t => `<span class="busy-tag">${t} h</span>`).join('')}
+                    </div>
+                </div>`;
+        }
+
+        const selectTermin = document.getElementById('klijentTermin');
+        let slobodni = SVI_MOGUCI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
+
+        if (slobodni.length === 0) {
+            selectTermin.innerHTML = `<option value="">Nema slobodnih termina za ovaj dan!</option>`;
+            selectTermin.disabled = true;
+        } else {
+            selectTermin.disabled = false;
+            selectTermin.innerHTML = `<option value="">-- Izaberite slobodan termin --</option>` + 
+                slobodni.map(t => `<option value="${t}">${t} h</option>`).join('');
+        }
+    }
+
+    // Slanje rezervacije i preusmjeravanje na WhatsApp
+    function rezervisiWA() {
+        const termin = document.getElementById('klijentTermin').value;
+        const ime = document.getElementById('klijentIme').value.trim();
+        const napomena = document.getElementById('klijentNapomena').value.trim();
+        const btn = document.getElementById('btnSubmit');
+
+        if(!termin) {
+            alert("Molimo izaberite slobodan termin iz menija.");
+            return;
+        }
+        if(!ime || !napomena) {
+            alert("Molimo unesite vaše Ime i Prezime, kao i Napomenu.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<div class="spinner" style="border-top-color: white;"></div> Upisujem u bazu...`;
+
+        // Upis u bazu preko skrivene forme i iframe-a
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
+            const form = document.getElementById('hiddenForm');
+            form.action = FIRMA.bazaUrl;
+            document.getElementById('formDatum').value = odabraniDatum;
+            document.getElementById('formTermin').value = termin;
+            document.getElementById('formUsluga').value = odabranaUsluga.naziv;
+            document.getElementById('formIme').value = ime;
+            document.getElementById('formNapomena').value = napomena;
             
-            // Opcionalno: Otvaranje WhatsApp-a automatski ka tebi
-            let adminPhone = "38761123456"; // Tvoj broj
-            let text = `Pozdrav, nova rezervacija:%nIme: ${formData.ime}%nUsluga: ${formData.usluga}%nTermin: ${formData.datum} u ${formData.vrijeme}`;
-            // window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(text)}`, '_blank');
+            form.submit();
+        }
 
-            document.getElementById('bookingForm').reset();
-            setTimeout(() => { submitBtn.style.display = 'block'; }, 3000);
-        })
-        .catch(error => {
-            loading.style.display = 'none';
-            submitBtn.style.display = 'block';
-            msgBox.className = 'response-msg error';
-            msgBox.innerHTML = 'Greška pri slanju. Pokušajte ponovo.';
-            msgBox.style.display = 'block';
-            console.error('Error!', error);
-        });
-    });
+        // Formatiranje poruke za WhatsApp
+        const poruka = `🚨 *NOVA REZERVACIJA TERMINA*\n\n` +
+                       `🏢 *Objekat:* ${FIRMA.naziv}\n` +
+                       `📅 *Dan:* ${odabraniDatum}\n` +
+                       `⏰ *Vrijeme:* ${termin}h\n` +
+                       `🛠️ *Usluga:* ${odabranaUsluga.naziv} (${odabranaUsluga.cijena})\n\n` +
+                       `👤 *Klijent:* ${ime}\n` +
+                       `📝 *Napomena:* ${napomena}`;
+                       
+        const encoded = encodeURIComponent(poruka);
+        
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-brands fa-whatsapp" style="font-size: 1.25rem;"></i> POTVRDI I ZAKAŽI PREKO WHATSAPPA`;
+
+            // Dodaj lokalno u zauzete radi trenutačnog osvježenja
+            if (!zauzetiTerminiIzBaze.includes(termin)) {
+                zauzetiTerminiIzBaze.push(termin);
+            }
+            osvjeziInterfejs();
+
+            // Preusmjeri na WhatsApp
+            window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
+            
+            // Resetuj unos
+            document.getElementById('klijentIme').value = "";
+            document.getElementById('klijentNapomena').value = "";
+            ucitajBazu();
+        }, 1000);
+    }
+
+    // Pokretanje
+    inicijalizujPrikaz();
 </script>
 
 </body>
