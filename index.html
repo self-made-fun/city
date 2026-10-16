@@ -59,7 +59,7 @@
         <div class="date-picker" id="dateContainer"></div>
 
         <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam bazu...</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam najnovije stanje iz baze...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -76,17 +76,6 @@
     </div>
 </div>
 
-<!-- Skrivena forma za upis kroz Google Apps Script -->
-<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-<form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
-    <input type="hidden" name="action" value="upisi">
-    <input type="hidden" name="datum" id="formDatum">
-    <input type="hidden" name="termin" id="formTermin">
-    <input type="hidden" name="usluga" id="formUsluga">
-    <input type="hidden" name="ime" id="formIme">
-    <input type="hidden" name="napomena" id="formNapomena">
-</form>
-
 <script>
     // =========================================================================
     // PODEŠAVANJE FIRME
@@ -96,10 +85,7 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        // 1. OVDJE STAVI DIREKTAN CSV LINK TVOJE TABELE (ZAMIJENI /edit... SA /export?format=csv)
-        sheetCsvUrl: "https://script.google.com/macros/s/AKfycbw9fwQR8u6aYdxSt3tWZcEcFDr_xmFhBGGFBbQviFW2dR69XGbZZ__nDyn_L06RAdvnrg/exec=csv",
-        // 2. OVDJE STAVI SVOJ GOOGLE APPS SCRIPT URL ZA UPIS
-        bazaUrl: "https://script.google.com/macros/s/AKfycbw9fwQR8u6aYdxSt3tWZcEcFDr_xmFhBGGFBbQviFW2dR69XGbZZ__nDyn_L06RAdvnrg/exec",
+        bazaUrl: "https://script.google.com/macros/s/AKfycbxbfFBQJSYkuupSGyyNIE_Q-TCyZ9T3T58-J-5IS6PJvinFTFf-Tdj6sisbWIYNXXAccA/exec", // <--- Ovdje zalijepi novi Web App URL
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -159,28 +145,22 @@
         document.getElementById('loadingStatus').style.display = 'block';
         zauzetiTerminiIzBaze = [];
 
-        try {
-            // Direktoran fetch CSV fajla - NEMA CORS PROBLEMA, NEMA REDIREKCIJA
-            let res = await fetch(FIRMA.sheetCsvUrl + "&t=" + Date.now(), { cache: "no-store" });
-            let csvText = await res.text();
-            
-            let redovi = csvText.split("\n");
-            for (let i = 1; i < redovi.length; i++) {
-                let kolone = redovi[i].split(",");
-                if (kolone.length >= 2) {
-                    let datum = kolone[0].replace(/"/g, "").trim().toLowerCase();
-                    let termin = kolone[1].replace(/"/g, "").trim();
-                    let status = kolone[5] ? kolone[5].replace(/"/g, "").trim().toLowerCase() : "potvrđeno";
-
-                    if (datum === odabraniDatum.toLowerCase() && status !== "otkazano") {
-                        if (termin && !zauzetiTerminiIzBaze.includes(termin)) {
-                            zauzetiTerminiIzBaze.push(termin);
-                        }
-                    }
+        if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
+            try {
+                // POST zahtjev u potpunosti eliminiše probleme sa keširanjem i redirect-om
+                let response = await fetch(FIRMA.bazaUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "citanje", datum: odabraniDatum })
+                });
+                
+                let json = await response.json();
+                if (json && json.status === "success" && json.zauzeti) {
+                    zauzetiTerminiIzBaze = json.zauzeti.map(t => String(t).trim());
                 }
+            } catch (e) {
+                console.log("Greška pri čitanju baze:", e);
             }
-        } catch (e) {
-            console.log("Greška pri čitanju CSV-a:", e);
         }
         
         document.getElementById('loadingStatus').style.display = 'none';
@@ -211,7 +191,7 @@
         }).join('');
     }
 
-    function rezervisiWA() {
+    async function rezervisiWA() {
         const ime = document.getElementById('klijentIme').value.trim();
         const napomena = document.getElementById('klijentNapomena').value.trim();
         const btn = document.getElementById('btnSubmit');
@@ -228,17 +208,24 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // Upis u bazu preko Apps Script-a
+        // Upis u bazu preko POST zahtjeva
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
-            const form = document.getElementById('hiddenForm');
-            form.action = FIRMA.bazaUrl;
-            document.getElementById('formDatum').value = odabraniDatum;
-            document.getElementById('formTermin').value = odabraniTermin;
-            document.getElementById('formUsluga').value = odabranaUsluga.naziv;
-            document.getElementById('formIme').value = ime;
-            document.getElementById('formNapomena').value = napomena;
-            
-            form.submit();
+            try {
+                await fetch(FIRMA.bazaUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: "upisi",
+                        datum: odabraniDatum,
+                        termin: odabraniTermin,
+                        usluga: odabranaUsluga.naziv,
+                        ime: ime,
+                        napomena: napomena
+                    })
+                });
+            } catch (e) {
+                console.log("Greška pri upisu:", e);
+            }
         }
 
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
@@ -250,7 +237,11 @@
                        `📝 *Napomena:* ${napomena}`;
                        
         const encoded = encodeURIComponent(poruka);
+        
+        btn.disabled = false;
+        btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
+        // Dodaj odmah lokalno u zauzete da korisnik odmah vidi promenu
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
@@ -260,11 +251,7 @@
         
         prikaziTermine();
 
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
-            window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
-        }, 1000);
+        window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
     }
 
     inicijalizujPrikaz();
