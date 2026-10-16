@@ -79,7 +79,6 @@
     </div>
 </div>
 
-<!-- Skrivena forma i iframe za pouzdan upis bez CORS blokada -->
 <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 <form id="hiddenForm" method="GET" target="hidden_iframe" style="display:none;">
     <input type="hidden" name="action" value="upisi">
@@ -95,7 +94,7 @@
         naziv: "Frizerski Salon 'BEAUTY'",
         opis: "Brzo i jednostavno zakazivanje termina",
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbwpNI1drefZHfLMEo2yWyhW9TkUe21QV__zI_7HAB0jzmaOV2baeDX-IBjX3VdVcyOssg/exec", // <--- OVDJE STAVI SVOJ NOVI WEB APP URL
+        bazaUrl: "https://script.google.com/macros/s/AKfycbzLvpANlO9l_4ozIiUnl2lFmpvmtNkqhM8nSNkAMQyJJKtuCdpOA4S8ViykI4o5BdiLpw/exec", // <--- OVDJE STAVI SVOJ WEB APP URL
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -104,7 +103,6 @@
         ]
     };
 
-    // Standardizovani termini (sve u formatu '9:00', bez nule ispred)
     const SVI_MOGUCI_TERMINI = ["9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
     let odabranaUsluga = FIRMA.usluge[0];
@@ -151,14 +149,14 @@
         ucitajBazu();
     }
 
-    // Normalizacija formata radi tačne usporedbe (pretvara '09:00' u '9:00')
+    // Ekstremno čišćenje stringa da uvijek vrati čist format (npr. "9:00")
     function cistiFormat(t) {
         if (!t) return "";
-        let str = String(t).trim().replace("h", "").trim();
-        if (str.indexOf("0") === 0 && str.length > 4) {
-            str = str.substring(1);
+        let s = String(t).replace(/[^\d:]/g, "").trim();
+        if (s.indexOf("0") === 0 && s.indexOf(":") === 2) {
+            s = s.substring(1);
         }
-        return str;
+        return s;
     }
 
     async function ucitajBazu() {
@@ -168,7 +166,6 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // Spremamo sprečavanje keširanja dodavanjem _t timestamp-a
                 let url = `${FIRMA.bazaUrl}?datum=${encodeURIComponent(odabraniDatum)}&_t=${Date.now()}`;
                 let res = await fetch(url, { cache: 'no-store' });
                 let json = await res.json();
@@ -189,7 +186,6 @@
         const busyContainer = document.getElementById('busyContainer');
         const selectTermin = document.getElementById('klijentTermin');
 
-        // Prikaz zauzetih na vrhu
         if (zauzetiTerminiIzBaze.length === 0) {
             busyContainer.innerHTML = `<div style="font-size:0.85rem; color:#2e7d32; background:#e8f5e9; padding:8px; border-radius:6px; text-align:center;">✅ Svi termini su slobodni za ovaj dan!</div>`;
         } else {
@@ -198,8 +194,11 @@
                 `</div>`;
         }
 
-        // STROGO FILTRIRANJE: Uklanjamo sve zauzete termine iz liste ponuđenih
-        let slobodni = SVI_MOGUCI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(cistiFormat(t)));
+        // GLAVNA ISPRAVKA: Filtriramo tako što upoređujemo isključivo očišćene formate
+        let slobodni = SVI_MOGUCI_TERMINI.filter(slot => {
+            let cistiSlot = cistiFormat(slot);
+            return !zauzetiTerminiIzBaze.includes(cistiSlot);
+        });
 
         if (slobodni.length === 0) {
             selectTermin.innerHTML = `<option value="">Nema slobodnih termina za ${odabraniDatum}!</option>`;
@@ -218,7 +217,7 @@
         const btn = document.getElementById('btnSubmit');
 
         if(!termin) {
-            alert("Svi termini za ovaj dan su popunjeni ili niste izabrali slobodan termin!");
+            alert("Izaberite slobodan termin iz menija.");
             return;
         }
         if(!ime || !napomena) {
@@ -229,7 +228,6 @@
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // Upis kroz skriveni iframe
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             const form = document.getElementById('hiddenForm');
             form.action = FIRMA.bazaUrl;
@@ -256,20 +254,17 @@
             btn.disabled = false;
             btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-            // Odmah lokalno sklanjamo termin iz dropdowna bez čekanja
             let cistTermin = cistiFormat(termin);
             if (!zauzetiTerminiIzBaze.includes(cistTermin)) {
                 zauzetiTerminiIzBaze.push(cistTermin);
             }
             osvjeziInterfejs();
 
-            // Preusmjeravanje na WhatsApp
             window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
             
             document.getElementById('klijentIme').value = "";
             document.getElementById('klijentNapomena').value = "";
             
-            // Osvježi iz baze za svaki slučaj
             setTimeout(ucitajBazu, 1500);
         }, 1000);
     }
