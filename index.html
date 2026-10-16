@@ -28,27 +28,14 @@
         .date-btn { flex: 1; padding: 10px; border: 2px solid #e4e6eb; border-radius: 10px; text-align: center; cursor: pointer; background: white; font-weight: 600; }
         .date-btn.selected { border-color: #128c7e; background-color: #128c7e; color: white; }
 
-        .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; transition: 0.15s; }
-        .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
-        
-        /* Zauzeti termin: vizuelno drugačiji, zabranjen klik, jasan hover */
-        .time-slot.busy { 
-            background: #ffebe9 !important; 
-            color: #d32f2f !important; 
-            border-color: #ffcdd2 !important; 
-            cursor: not-allowed !important; 
-            text-decoration: line-through; 
-            opacity: 0.75; 
-        }
-        .time-slot.busy:hover {
-            background: #ffdbd8 !important;
-            transform: scale(0.98);
-        }
-
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
-        .input-group input { width: 100%; padding: 11px; border: 1.5px solid #cccccc; border-radius: 8px; outline: none; }
+        .input-group input, .input-group select { width: 100%; padding: 11px; border: 1.5px solid #cccccc; border-radius: 8px; outline: none; background: white; font-size: 0.95rem; }
+
+        /* Lista već zauzetih termina iz baze */
+        .busy-list { background: #ffebe9; border: 1px solid #ffcdd2; border-radius: 8px; padding: 10px; margin-top: 5px; font-size: 0.85rem; color: #c62828; }
+        .busy-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #ffcdd2; }
+        .busy-item:last-child { border-bottom: none; }
 
         .btn-whatsapp { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1.05rem; font-weight: 700; cursor: pointer; color: white; background-color: #25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3); margin-top: 20px; }
         .btn-whatsapp:disabled { background-color: #a5d6a7; cursor: wait; }
@@ -71,11 +58,15 @@
         <div class="section-title">2. Izaberite dan</div>
         <div class="date-picker" id="dateContainer"></div>
 
-        <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam stanje iz baze...</div>
-        <div class="time-grid" id="timeContainer"></div>
+        <div class="section-title">3. Stanje zauzetosti za izabrani dan</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Provjeravam bazu...</div>
+        <div id="busyContainer"></div>
 
-        <div class="section-title">4. Vaši podaci</div>
+        <div class="section-title">4. Izaberite vrijeme i unesite podatke</div>
+        <div class="input-group">
+            <label>Željeno vrijeme (npr. 10:00) *</label>
+            <input type="text" id="klijentTermin" placeholder="npr. 10:00 ili 14:30">
+        </div>
         <div class="input-group">
             <label>Ime i Prezime *</label>
             <input type="text" id="klijentIme" placeholder="Unesite vaše ime">
@@ -90,15 +81,12 @@
 </div>
 
 <script>
-    // =========================================================================
-    // PODEŠAVANJE FIRME
-    // =========================================================================
     const FIRMA = {
         naziv: "Frizerski Salon 'BEAUTY'",
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbyZEkBXzyrbg6UUOYX79QXOPPGXDZ2FNxDeQSKwyAnqt3PHwamVj52JlHpNhgGw69t24A/exec", // <--- Ovdje zalijepi novi URL
+        bazaUrl: "https://script.google.com/macros/s/AKfycbw2mDOfOm0GyBnzQYFBtDaTJCx_VctKg-CgcWmjyYHFqj_82ggtBI18bFFZfA9AU8ZtiQ/exec", // <--- Ovdje zalijepi novi URL
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -107,12 +95,9 @@
         ]
     };
 
-    const SVI_TERMINI = ["9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-
     let odabranaUsluga = FIRMA.usluge[0];
     let odabraniDatum = "Danas";
-    let odabraniTermin = "";
-    let zauzetiTerminiIzBaze = [];
+    let listaRezervacijaIzBaze = [];
 
     function inicijalizujPrikaz() {
         document.getElementById('firmaNaziv').innerText = FIRMA.naziv;
@@ -156,7 +141,7 @@
 
     async function ucitajBazuIRebuild() {
         document.getElementById('loadingStatus').style.display = 'block';
-        zauzetiTerminiIzBaze = [];
+        listaRezervacijaIzBaze = [];
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
@@ -167,12 +152,8 @@
                 });
                 
                 let json = await response.json();
-                if (json && json.status === "success" && json.zauzeti) {
-                    zauzetiTerminiIzBaze = json.zauzeti.map(t => {
-                        let clean = String(t).trim();
-                        if (clean.indexOf('0') === 0 && clean.indexOf(':') > 1) clean = clean.substring(1);
-                        return clean;
-                    });
+                if (json && json.status === "success" && json.rezervacije) {
+                    listaRezervacijaIzBaze = json.rezervacije;
                 }
             } catch (e) {
                 console.log("Greška pri čitanju baze:", e);
@@ -180,48 +161,42 @@
         }
         
         document.getElementById('loadingStatus').style.display = 'none';
-        
-        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
-        
-        prikaziTermine();
+        prikaziZauzeteTerminePrikaz();
     }
 
-    function odaberiTermin(t) {
-        if (zauzetiTerminiIzBaze.includes(t)) {
-            alert("Ovaj termin je zauzet!");
+    function prikaziZauzeteTerminePrikaz() {
+        const container = document.getElementById('busyContainer');
+        if (listaRezervacijaIzBaze.length === 0) {
+            container.innerHTML = `<div style="font-size: 0.85rem; color: #2e7d32; background: #e8f5e9; padding: 8px; border-radius: 6px; text-align: center;">✅ Svi termini su slobodni za ovaj dan!</div>`;
             return;
         }
-        odabraniTermin = t;
-        prikaziTermine();
-    }
 
-    function prikaziTermine() {
-        const container = document.getElementById('timeContainer');
-
-        container.innerHTML = SVI_TERMINI.map(t => {
-            const isBusy = zauzetiTerminiIzBaze.includes(t);
-            const isSelected = t === odabraniTermin && !isBusy;
-            
-            if (isBusy) {
-                return `<div class="time-slot busy" title="Zauzeto" onclick="odaberiTermin('${t}')">${t} ❌</div>`;
-            } else {
-                return `<div class="time-slot ${isSelected ? 'selected' : ''}" onclick="odaberiTermin('${t}')">${t}</div>`;
-            }
-        }).join('');
+        container.innerHTML = `<div class="busy-list">` + 
+            listaRezervacijaIzBaze.map(r => `
+                <div class="busy-item">
+                    <span>❌ <b>${r.termin}h</b> - ${r.usluga}</span>
+                    <span style="opacity:0.8">(${r.ime})</span>
+                </div>
+            `).join('') + 
+            `</div>`;
     }
 
     async function rezervisiWA() {
+        const termin = document.getElementById('klijentTermin').value.trim();
         const ime = document.getElementById('klijentIme').value.trim();
         const napomena = document.getElementById('klijentNapomena').value.trim();
         const btn = document.getElementById('btnSubmit');
 
-        if(!ime || !napomena) {
-            alert("Popunite vaše ime i napomenu.");
+        if(!termin || !ime || !napomena) {
+            alert("Molimo popunite vrijeme, ime i napomenu.");
             return;
         }
-        if(!odabraniTermin || zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            alert("Izabrani termin je zauzet. Molimo izaberite drugi.");
+
+        // Provjeri da li je uneseni termin već zauzet u listi iz baze
+        let vecZauzeto = listaRezervacijaIzBaze.some(r => r.termin.toLowerCase() === termin.toLowerCase());
+        if (vecZauzeto) {
+            alert("⚠️ Izvinjavamo se, ovaj termin (" + termin + "h) je u međuvremenu zauzet! Izaberite drugo vrijeme.");
+            ucitajBazuIRebuild(); // Osvježi stanje
             return;
         }
 
@@ -236,7 +211,7 @@
                     body: JSON.stringify({
                         action: "upisi",
                         datum: odabraniDatum,
-                        termin: odabraniTermin,
+                        termin: termin,
                         usluga: odabranaUsluga.naziv,
                         ime: ime,
                         napomena: napomena
@@ -250,7 +225,7 @@
         const poruka = `🛑 *NOVA REZERVACIJA TERMINA*\n\n` +
                        `🏢 *Objekat:* ${FIRMA.naziv}\n` +
                        `📅 *Dan:* ${odabraniDatum}\n` +
-                       `⏰ *Vrijeme:* ${odabraniTermin}h\n` +
+                       `⏰ *Vrijeme:* ${termin}h\n` +
                        `🛠️ *Usluga:* ${odabranaUsluga.naziv} (${odabranaUsluga.cijena})\n\n` +
                        `👤 *Klijent:* ${ime}\n` +
                        `📝 *Napomena:* ${napomena}`;
@@ -260,20 +235,18 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            zauzetiTerminiIzBaze.push(odabraniTermin);
-        }
-        
-        let slobodni = SVI_TERMINI.filter(t => !zauzetiTerminiIzBaze.includes(t));
-        odabraniTermin = slobodni.length > 0 ? slobodni[0] : "";
-        
-        prikaziTermine();
-
         window.open(`https://wa.me/${FIRMA.brojTelefona}?text=${encoded}`, '_blank');
+        
+        // Reset polja i osvježi prikaz
+        document.getElementById('klijentTermin').value = "";
+        document.getElementById('klijentIme').value = "";
+        document.getElementById('klijentNapomena').value = "";
+        ucitajBazuIRebuild();
     }
 
     inicijalizujPrikaz();
 </script>
 
 </body>
+🇪🇭
 </html>
