@@ -3,70 +3,133 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zakazivanje termina</title>
+<title>Zakazivanje</title>
 <style>
-  * { box-sizing: border-box; font-family: system-ui, sans-serif; }
-  body { max-width: 500px; margin: 20px auto; padding: 16px; background: #f5f5f5; }
-  .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; }
-  h2 { margin-top: 0; color: #075E54; }
-  label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 14px; }
-  input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; }
-  button { background: #25D366; color: #fff; border: 0; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; width: 100%; margin-top: 16px; cursor: pointer; }
-  button:disabled { background: #aaa; cursor: not-allowed; }
+  * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { max-width: 520px; margin: 0 auto; padding: 16px; background: #f0f2f5; color: #111; }
+  .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  h2 { margin: 0 0 16px; color: #075E54; font-size: 20px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab { flex: 1; padding: 10px; text-align: center; background: #fff; border-radius: 8px; cursor: pointer; font-weight: 600; border: 2px solid transparent; }
+  .tab.active { background: #25D366; color: #fff; }
+  label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 14px; }
+  input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
+  input:focus, textarea:focus { border-color: #25D366; }
+  button { background: #25D366; color: #fff; border: 0; padding: 13px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; width: 100%; margin-top: 16px; cursor: pointer; }
+  button:disabled { background: #999; cursor: not-allowed; }
   .msg { padding: 10px; border-radius: 8px; margin-top: 12px; font-size: 14px; display: none; }
-  .msg.ok { background: #d4edda; color: #155724; display: block; }
+  .msg.ok  { background: #d4edda; color: #155724; display: block; }
   .msg.err { background: #f8d7da; color: #721c24; display: block; }
-  .slot { display: inline-block; padding: 8px 12px; margin: 4px; border: 2px solid #25D366; border-radius: 8px; cursor: pointer; background: #fff; }
+  .slots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .slot { padding: 8px 14px; border: 2px solid #25D366; border-radius: 8px; cursor: pointer; background: #fff; font-size: 14px; }
   .slot.selected { background: #25D366; color: #fff; }
+  .hidden { display: none; }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>📅 Zakaži termin</h2>
-  
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('termin', this)">📅 Termin</div>
+  <div class="tab" onclick="switchTab('porudzbina', this)">📦 Porudžbina</div>
+</div>
+
+<!-- ================= FORMA: TERMIN ================= -->
+<div class="card" id="formaTermin">
+  <h2>Zakaži termin</h2>
+
   <label>Datum</label>
-  <input type="date" id="date" onchange="loadSlots()">
-  
+  <input type="date" id="t_date" onchange="loadSlots()">
+
   <label>Slobodni termini</label>
-  <div id="slots">Izaberi datum...</div>
-  
+  <div id="slots" class="slots"><em style="color:#888;font-size:14px;">Izaberi datum...</em></div>
+
   <label>Usluga</label>
-  <input type="text" id="service" placeholder="npr. Šišanje">
-  
+  <input type="text" id="t_service" placeholder="npr. Šišanje">
+
   <label>Ime i prezime</label>
-  <input type="text" id="name" placeholder="Marko Marković">
-  
-  <label>Telefon (npr. 381641234567)</label>
-  <input type="tel" id="phone" placeholder="381641234567">
-  
+  <input type="text" id="t_name" placeholder="Marko Marković">
+
+  <label>Telefon</label>
+  <input type="tel" id="t_phone" placeholder="0641234567">
+
   <label>Napomena (opciono)</label>
-  <textarea id="note" rows="2"></textarea>
-  
-  <button onclick="book()" id="btnBook">Zakaži i pošalji na WhatsApp</button>
-  <div class="msg" id="msg"></div>
+  <textarea id="t_note" rows="2"></textarea>
+
+  <button id="btnTermin" onclick="book()">Zakaži i pošalji na WhatsApp</button>
+  <div class="msg" id="msgTermin"></div>
+</div>
+
+<!-- ================= FORMA: PORUDZBINA ================= -->
+<div class="card hidden" id="formaPorudzbina">
+  <h2>Nova porudžbina</h2>
+
+  <label>Proizvod</label>
+  <input type="text" id="p_product" placeholder="npr. Kafa 250g">
+
+  <label>Količina</label>
+  <input type="number" id="p_quantity" value="1" min="1">
+
+  <label>Ime i prezime</label>
+  <input type="text" id="p_name" placeholder="Ana Anić">
+
+  <label>Telefon</label>
+  <input type="tel" id="p_phone" placeholder="0641234567">
+
+  <label>Adresa</label>
+  <input type="text" id="p_address" placeholder="Ulica i broj, grad">
+
+  <button id="btnPorudzbina" onclick="order()">Poruči i pošalji na WhatsApp</button>
+  <div class="msg" id="msgPorudzbina"></div>
 </div>
 
 <script>
-  const API = 'https://script.google.com/macros/s/AKfycbz_dBjOWyu_k9-pgGOkWstyoIIXjFjK2qN8E6yXE9_gpf1xNA7b9smp-ouzwbaQG6CcTg/exec'; // zameni posle deploy-a
+  // ============================================================
+  // POVEZIVANJE SA APPS SCRIPT-OM
+  // ============================================================
+  const API = 'https://script.google.com/macros/s/AKfycbwM7LACpwpWEiT581fKuJMY3u3bb79khVUDfxhc5NQrrNkTpmMGxvwFaotPUsAEtcIOwA/exec'; // ostavi prazno - koristi isti URL kao i forma
+
+  function apiUrl(params) {
+    const base = API || window.location.href.split('?')[0];
+    const qs = new URLSearchParams(params).toString();
+    return base + '?' + qs;
+  }
+
   let selectedSlot = null;
 
+  // ============================================================
+  // TABOVI
+  // ============================================================
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('formaTermin').classList.toggle('hidden', name !== 'termin');
+    document.getElementById('formaPorudzbina').classList.toggle('hidden', name !== 'porudzbina');
+  }
+
+  // ============================================================
+  // UCITAVANJE SLOBODNIH TERMINA
+  // ============================================================
   async function loadSlots() {
-    const date = document.getElementById('date').value;
-    if (!date) return;
+    const date = document.getElementById('t_date').value;
     const el = document.getElementById('slots');
-    el.textContent = 'Učitavam...';
+    if (!date) return;
+
+    el.innerHTML = '<em style="color:#888;font-size:14px;">Učitavam...</em>';
     selectedSlot = null;
 
     try {
-      const res = await fetch(`${API}?action=getSlots&date=${date}`);
+      const res = await fetch(apiUrl({ action: 'getSlots', date }));
       const slots = await res.json();
-      if (!slots.length) { el.textContent = 'Nema slobodnih termina.'; return; }
+
+      if (!slots.length) {
+        el.innerHTML = '<em style="color:#888;font-size:14px;">Nema slobodnih termina za taj dan.</em>';
+        return;
+      }
       el.innerHTML = slots.map(s =>
-        `<span class="slot" onclick="pickSlot(${s.id}, this)">${s.time} - ${s.service}</span>`
+        `<div class="slot" data-id="${s.id}" onclick="pickSlot(${s.id}, this)">${s.time}${s.service ? ' · ' + s.service : ''}</div>`
       ).join('');
     } catch (e) {
-      el.textContent = 'Greška pri učitavanju.';
+      el.innerHTML = '<em style="color:#c00;font-size:14px;">Greška: ' + e.message + '</em>';
     }
   }
 
@@ -76,48 +139,89 @@
     el.classList.add('selected');
   }
 
+  // ============================================================
+  // ZAKAZIVANJE
+  // ============================================================
   async function book() {
-    const msg = document.getElementById('msg');
+    const msg = document.getElementById('msgTermin');
     msg.className = 'msg';
 
-    if (!selectedSlot) return showMsg('Izaberi termin.', 'err');
-    const name = document.getElementById('name').value.trim();
-    const phone = document.getElementById('phone').value.trim();
-    if (!name || !phone) return showMsg('Unesi ime i telefon.', 'err');
+    if (!selectedSlot) return showMsg('msgTermin', 'Izaberi termin.', 'err');
+    const name  = document.getElementById('t_name').value.trim();
+    const phone = document.getElementById('t_phone').value.trim();
+    const note  = document.getElementById('t_note').value.trim();
 
-    const btn = document.getElementById('btnBook');
+    if (!name || !phone) return showMsg('msgTermin', 'Unesi ime i telefon.', 'err');
+
+    const btn = document.getElementById('btnTermin');
     btn.disabled = true;
     btn.textContent = 'Šaljem...';
 
     try {
-      const params = new URLSearchParams({
-        action: 'book',
-        id: selectedSlot,
-        name, phone,
-        note: document.getElementById('note').value
-      });
-      const res = await fetch(`${API}?${params}`);
+      const res = await fetch(apiUrl({
+        action: 'book', id: selectedSlot, name, phone, note
+      }));
       const data = await res.json();
 
       if (data.status === 'success') {
-        showMsg('✅ Termin zakazan! Otvaram WhatsApp...', 'ok');
-        // AUTOMATSKO OTVARANJE WHATSAPP-A SA PORUKOM
+        showMsg('msgTermin', '✅ Termin zakazan! Otvaram WhatsApp...', 'ok');
         window.open(data.whatsappLink, '_blank');
       } else {
-        showMsg('❌ ' + data.message, 'err');
+        showMsg('msgTermin', '❌ ' + data.message, 'err');
       }
     } catch (e) {
-      showMsg('Greška: ' + e.message, 'err');
+      showMsg('msgTermin', 'Greška: ' + e.message, 'err');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Zakaži i pošalji na WhatsApp';
     }
   }
 
-  function showMsg(text, type) {
-    const msg = document.getElementById('msg');
-    msg.textContent = text;
-    msg.className = 'msg ' + type;
+  // ============================================================
+  // PORUDZBINA
+  // ============================================================
+  async function order() {
+    const msg = document.getElementById('msgPorudzbina');
+    msg.className = 'msg';
+
+    const product  = document.getElementById('p_product').value.trim();
+    const quantity = document.getElementById('p_quantity').value || 1;
+    const name     = document.getElementById('p_name').value.trim();
+    const phone    = document.getElementById('p_phone').value.trim();
+    const address  = document.getElementById('p_address').value.trim();
+
+    if (!product || !name || !phone) {
+      return showMsg('msgPorudzbina', 'Popuni proizvod, ime i telefon.', 'err');
+    }
+
+    const btn = document.getElementById('btnPorudzbina');
+    btn.disabled = true;
+    btn.textContent = 'Šaljem...';
+
+    try {
+      const res = await fetch(apiUrl({
+        action: 'order', product, quantity, name, phone, address
+      }));
+      const data = await res.json();
+
+      if (data.status === 'success') {
+        showMsg('msgPorudzbina', '✅ Porudžbina #' + data.orderId + ' primljena! Otvaram WhatsApp...', 'ok');
+        window.open(data.whatsappLink, '_blank');
+      } else {
+        showMsg('msgPorudzbina', '❌ ' + data.message, 'err');
+      }
+    } catch (e) {
+      showMsg('msgPorudzbina', 'Greška: ' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Poruči i pošalji na WhatsApp';
+    }
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg ' + type;
   }
 </script>
 
