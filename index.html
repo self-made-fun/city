@@ -29,9 +29,22 @@
         .date-btn.selected { border-color: #128c7e; background-color: #128c7e; color: white; }
 
         .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; }
+        .time-slot { padding: 10px; border: 1.5px solid #e4e6eb; border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; background: #f8f9fa; transition: 0.15s; }
         .time-slot.selected { border-color: #128c7e; background: #128c7e; color: white; }
-        .time-slot.busy { background: #ffebe9 !important; color: #d32f2f !important; border-color: #ffcdd2 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.65; }
+        
+        /* Zauzeti termin: vizuelno drugačiji, zabranjen klik, jasan hover */
+        .time-slot.busy { 
+            background: #ffebe9 !important; 
+            color: #d32f2f !important; 
+            border-color: #ffcdd2 !important; 
+            cursor: not-allowed !important; 
+            text-decoration: line-through; 
+            opacity: 0.75; 
+        }
+        .time-slot.busy:hover {
+            background: #ffdbd8 !important;
+            transform: scale(0.98);
+        }
 
         .input-group { margin-top: 10px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #4b4f56; }
@@ -59,7 +72,7 @@
         <div class="date-picker" id="dateContainer"></div>
 
         <div class="section-title">3. Termini (Zauzeti su označeni ❌)</div>
-        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam najnovije stanje iz baze...</div>
+        <div id="loadingStatus" class="loading" style="display:none;">⏳ Učitavam stanje iz baze...</div>
         <div class="time-grid" id="timeContainer"></div>
 
         <div class="section-title">4. Vaši podaci</div>
@@ -85,7 +98,7 @@
         opis: "Brzo i jednostavno zakazivanje termina",
         logoUrl: "", 
         brojTelefona: "38761255417", 
-        bazaUrl: "https://script.google.com/macros/s/AKfycbxbfFBQJSYkuupSGyyNIE_Q-TCyZ9T3T58-J-5IS6PJvinFTFf-Tdj6sisbWIYNXXAccA/exec", // <--- Ovdje zalijepi novi Web App URL
+        bazaUrl: "https://script.google.com/macros/s/AKfycbyZEkBXzyrbg6UUOYX79QXOPPGXDZ2FNxDeQSKwyAnqt3PHwamVj52JlHpNhgGw69t24A/exec", // <--- Ovdje zalijepi novi URL
         labelNapomena: "Napomena / Posebne želje *",
         placeholderNapomena: "npr. Pranje kose i feniranje",
         usluge: [
@@ -147,7 +160,6 @@
 
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
-                // POST zahtjev u potpunosti eliminiše probleme sa keširanjem i redirect-om
                 let response = await fetch(FIRMA.bazaUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -156,7 +168,11 @@
                 
                 let json = await response.json();
                 if (json && json.status === "success" && json.zauzeti) {
-                    zauzetiTerminiIzBaze = json.zauzeti.map(t => String(t).trim());
+                    zauzetiTerminiIzBaze = json.zauzeti.map(t => {
+                        let clean = String(t).trim();
+                        if (clean.indexOf('0') === 0 && clean.indexOf(':') > 1) clean = clean.substring(1);
+                        return clean;
+                    });
                 }
             } catch (e) {
                 console.log("Greška pri čitanju baze:", e);
@@ -172,6 +188,10 @@
     }
 
     function odaberiTermin(t) {
+        if (zauzetiTerminiIzBaze.includes(t)) {
+            alert("Ovaj termin je zauzet!");
+            return;
+        }
         odabraniTermin = t;
         prikaziTermine();
     }
@@ -184,7 +204,7 @@
             const isSelected = t === odabraniTermin && !isBusy;
             
             if (isBusy) {
-                return `<div class="time-slot busy">${t} ❌</div>`;
+                return `<div class="time-slot busy" title="Zauzeto" onclick="odaberiTermin('${t}')">${t} ❌</div>`;
             } else {
                 return `<div class="time-slot ${isSelected ? 'selected' : ''}" onclick="odaberiTermin('${t}')">${t}</div>`;
             }
@@ -201,14 +221,13 @@
             return;
         }
         if(!odabraniTermin || zauzetiTerminiIzBaze.includes(odabraniTermin)) {
-            alert("Ovaj termin je zauzet. Izaberite drugi.");
+            alert("Izabrani termin je zauzet. Molimo izaberite drugi.");
             return;
         }
 
         btn.disabled = true;
         btn.innerText = "⏳ Upisujem u bazu...";
 
-        // Upis u bazu preko POST zahtjeva
         if (FIRMA.bazaUrl && !FIRMA.bazaUrl.includes("OVDJE_ZALIJEPI")) {
             try {
                 await fetch(FIRMA.bazaUrl, {
@@ -241,7 +260,6 @@
         btn.disabled = false;
         btn.innerText = "💬 ZAKAŽI PREKO WHATSAPPA";
 
-        // Dodaj odmah lokalno u zauzete da korisnik odmah vidi promenu
         if (!zauzetiTerminiIzBaze.includes(odabraniTermin)) {
             zauzetiTerminiIzBaze.push(odabraniTermin);
         }
